@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block title %}Nova Ordem - Inovatech OS{% endblock %}
+
+{% block content %}
+<h1>Criar nova Ordem de Serviço</h1>
+<form method="post">
+    <div class="mb-3">
+        <label for="cliente" class="form-label">Nome do cliente</label>
+        <input type="text" class="form-control" id="cliente" name="cliente" required>
+    </div>
+    <div class="mb-3">
+        <label for="contato" class="form-label">Contato (telefone ou e-mail)</label>
+        <input type="text" class="form-control" id="contato" name="contato" required>
+    </div>
+    <div class="mb-3">
+        <label for="produto" class="form-label">Produto/Equipamento</label>
+        <input type="text" class="form-control" id="produto" name="produto" required>
+    </div>
+    <div class="mb-3">
+        <label for="problema" class="form-label">Descrição do problema</label>
+        <textarea class="form-control" id="problema" name="problema" rows="3" required></textarea>
+    </div>
+    <div class="mb-3">
+        <label for="status" class="form-label">Status inicial</label>
+        <select class="form-select" id="status" name="status">
+            <option value="Recebido">Recebido</option>
+            <option value="Em análise">Em análise</option>
+            <option value="Aguardando aprovação">Aguardando aprovação</option>
+            <option value="Em execução">Em execução</option>
+            <option value="Pronto">Pronto</option>
+        </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Salvar</button>
+</form>
+{% endblock %}

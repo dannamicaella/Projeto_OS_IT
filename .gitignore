@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+os.db
+dist/
+build/
+*.zip

@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block title %}Detalhes da Ordem - Inovatech OS{% endblock %}
+
+{% block content %}
+<h1>Ordem #{{ order.id }}</h1>
+<div class="row">
+    <div class="col-md-8">
+        <dl class="row">
+            <dt class="col-sm-3">Cliente</dt>
+            <dd class="col-sm-9">{{ order.cliente }}</dd>
+            <dt class="col-sm-3">Contato</dt>
+            <dd class="col-sm-9">{{ order.contato }}</dd>
+            <dt class="col-sm-3">Produto</dt>
+            <dd class="col-sm-9">{{ order.produto }}</dd>
+            <dt class="col-sm-3">Problema</dt>
+            <dd class="col-sm-9">{{ order.problema }}</dd>
+            <dt class="col-sm-3">Status</dt>
+            <dd class="col-sm-9">
+                <form method="post" action="{{ url_for('update_order', token=order.token) }}" class="d-flex align-items-center">
+                    <select name="status" class="form-select form-select-sm me-2" style="max-width:200px;">
+                        {% for s in ['Recebido','Em análise','Aguardando aprovação','Em execução','Pronto'] %}
+                        <option value="{{ s }}" {% if order.status == s %}selected{% endif %}>{{ s }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-sm btn-primary">Atualizar</button>
+                </form>
+            </dd>
+            <dt class="col-sm-3">Data de Entrada</dt>
+            <dd class="col-sm-9">{{ order.data_entrada.strftime('%d/%m/%Y %H:%M') }}</dd>
+        </dl>
+    </div>
+    <div class="col-md-4 text-center">
+        <h5>Etiqueta QR Code</h5>
+        <img src="{{ order.qr_code_url() }}" alt="QR Code" class="img-fluid mb-2" style="max-width:180px;">
+        <p>
+            Clique com o botão direito na imagem e escolha "Salvar como..." para imprimir a etiqueta.
+        </p>
+    </div>
+</div>
+<a class="btn btn-secondary" href="{{ url_for('index') }}">Voltar</a>
+{% endblock %}
