@@ -39,9 +39,30 @@ except ImportError:
 app = Flask(__name__)
 
 # Configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///os.db'
+_db_url = os.environ.get('DATABASE_URL', 'sqlite:///os.db')
+# Supabase / Heroku may provide postgres://, SQLAlchemy requires postgresql://
+if _db_url.startswith('postgres://'):
+    _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
+app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = 'inovatech-secret-key'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-only-insecure-key')
+
+# Supabase / serverless-friendly engine options.
+# Uses SSL (required by Supabase) and a minimal pool suitable for
+# stateless serverless runtimes like Vercel.
+# prepare_threshold=None disables server-side prepared statements, which is
+# required when using Supabase's transaction-mode connection pooler (port 6543).
+if not _db_url.startswith('sqlite'):
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_pre_ping': True,
+        'pool_size': 1,
+        'max_overflow': 0,
+        'pool_recycle': 300,
+        'connect_args': {
+            'sslmode': 'require',
+            'prepare_threshold': None,
+        },
+    }
 
 db = SQLAlchemy(app)
 
@@ -57,19 +78,14 @@ class Order(db.Model):
     status = db.Column(db.String(50), default='Recebido', nullable=False)
     data_entrada = db.Column(db.DateTime, default=datetime.utcnow)
 
-    def qr_code_filename(self) -> str:
-        """Return the filename for the QR image for this order."""
-        return f"static/qrcodes/{self.token}.png"
-
     def qr_code_url(self) -> str:
-        """Return the URL for the QR code image (relative to static)."""
-        return f"/static/qrcodes/{self.token}.png"
+        """Return the URL for the QR code image (generated on-the-fly)."""
+        return f"/qr/{self.token}.png"
 
 
 def create_db():
-    """Create database tables and output directories if they don't exist."""
+    """Create database tables if they don't exist."""
     db.create_all()
-    os.makedirs(os.path.join(app.root_path, 'static', 'qrcodes'), exist_ok=True)
 
 
 COLOR_MAP = {
@@ -95,18 +111,12 @@ def _order_to_dict(order):
 
 
 def _persist_order(cliente, contato, produto, problema, status='Recebido'):
-    """Create an order, commit it, and generate its QR code. Returns the Order."""
+    """Create an order and commit it. Returns the Order."""
     token = uuid.uuid4().hex
     order = Order(token=token, cliente=cliente, contato=contato,
                   produto=produto, problema=problema, status=status)
     db.session.add(order)
     db.session.commit()
-    qr_path = os.path.join(app.root_path, order.qr_code_filename())
-    if qrcode:
-        qr_img = qrcode.make(f"{FRONTEND_URL}/os/{token}")
-        qr_img.save(qr_path)
-    else:
-        open(qr_path, 'wb').close()
     return order
 
 
@@ -225,6 +235,18 @@ def api_update_order_status(token: str):
     return redirect(url_for('order_detail', token=token))
 
 
+@app.route('/qr/<token>.png')
+def qr_code_image(token: str):
+    """Generate and return the QR code image for an order on-the-fly."""
+    Order.query.filter_by(token=token).first_or_404()
+    img_io = io.BytesIO()
+    if qrcode:
+        qr_img = qrcode.make(f"{FRONTEND_URL}/os/{token}")
+        qr_img.save(img_io, format='PNG')
+    img_io.seek(0)
+    return Response(img_io, mimetype='image/png')
+
+
 @app.route('/new')
 def new_order():
     """Render the new order form."""
@@ -238,8 +260,11 @@ def order_detail(token: str):
     return render_template('os_detail.html', order=order, statuses=list(COLOR_MAP.keys()))
 
 
+# Initialize DB at import time so Vercel's serverless runtime creates tables
+# on first cold start without needing a separate migration step.
+with app.app_context():
+    create_db()
+
 if __name__ == '__main__':
-    with app.app_context():
-        create_db()
     port = int(os.environ.get('PORT', 5000))
     app.run(debug=True, port=port)
