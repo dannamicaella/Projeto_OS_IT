@@ -4,7 +4,7 @@
 
 {% block content %}
 <h1>Criar nova Ordem de Serviço</h1>
-<form method="post">
+<form method="post" action="{{ url_for('api_create_order') }}">
     <div class="mb-3">
         <label for="cliente" class="form-label">Nome do cliente</label>
         <input type="text" class="form-control" id="cliente" name="cliente" required>
@@ -24,11 +24,9 @@
     <div class="mb-3">
         <label for="status" class="form-label">Status inicial</label>
         <select class="form-select" id="status" name="status">
-            <option value="Recebido">Recebido</option>
-            <option value="Em análise">Em análise</option>
-            <option value="Aguardando aprovação">Aguardando aprovação</option>
-            <option value="Em execução">Em execução</option>
-            <option value="Pronto">Pronto</option>
+            {% for s in statuses %}
+            <option value="{{ s }}">{{ s }}</option>
+            {% endfor %}
         </select>
     </div>
     <button type="submit" class="btn btn-primary">Salvar</button>
