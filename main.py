@@ -79,7 +79,12 @@ class Order(Base):
 
 # Create tables at import time so Vercel's serverless runtime creates them
 # on first cold start without needing a separate migration step.
-Base.metadata.create_all(engine)
+# Wrapped in try/except so a DB connectivity issue doesn't crash startup outright.
+try:
+    Base.metadata.create_all(engine)
+except Exception as _create_err:
+    import warnings
+    warnings.warn(f"Could not create tables on startup: {_create_err}")
 
 COLOR_MAP = {
     'Recebido': '#28a745',
