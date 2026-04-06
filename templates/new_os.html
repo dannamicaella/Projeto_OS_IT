@@ -4,7 +4,7 @@
 
 {% block content %}
 <h1>Criar nova Ordem de Serviço</h1>
-<form method="post" action="{{ url_for('api_create_order') }}">
+<form method="post" action="{{ request.url_for('api_create_order') }}">
     <div class="mb-3">
         <label for="cliente" class="form-label">Nome do cliente</label>
         <input type="text" class="form-control" id="cliente" name="cliente" required>

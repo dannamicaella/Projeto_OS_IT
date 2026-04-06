@@ -1,6 +1,9 @@
-Flask
-Flask-SQLAlchemy
+fastapi
+uvicorn
+sqlalchemy
 qrcode[pil]
 python-dotenv
 psycopg2-binary~=2.9.3
-setuptools
+python-multipart
+jinja2
+itsdangerous

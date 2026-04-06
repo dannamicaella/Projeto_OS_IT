@@ -59,12 +59,12 @@
             </td>
             <td>{{ order.data_entrada.strftime('%d/%m/%Y %H:%M') }}</td>
             <td>
-                <a href="{{ url_for('order_detail', token=order.token) }}">
+                <a href="{{ request.url_for('order_detail', token=order.token) }}">
                     <img src="{{ order.qr_code_url() }}" alt="QR" style="width:40px;height:40px;">
                 </a>
             </td>
             <td>
-                <a class="btn btn-sm btn-secondary" href="{{ url_for('order_detail', token=order.token) }}">Detalhes</a>
+                <a class="btn btn-sm btn-secondary" href="{{ request.url_for('order_detail', token=order.token) }}">Detalhes</a>
             </td>
         </tr>
         {% else %}
@@ -74,8 +74,8 @@
 </table>
 
 <div class="mb-3 d-flex gap-2">
-    <a class="btn btn-primary" href="{{ url_for('new_order') }}">Nova Ordem</a>
-    <a class="btn btn-outline-secondary" href="{{ url_for('export_orders', status=status_filter, start=date_from, end=date_to) }}">Exportar CSV</a>
+    <a class="btn btn-primary" href="{{ request.url_for('new_order') }}">Nova Ordem</a>
+    <a class="btn btn-outline-secondary" href="{{ export_url }}">Exportar CSV</a>
 </div>
 
 <div class="mt-4 pt-3 border-top">

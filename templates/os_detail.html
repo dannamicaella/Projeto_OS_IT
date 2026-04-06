@@ -17,7 +17,7 @@
             <dd class="col-sm-9">{{ order.problema }}</dd>
             <dt class="col-sm-3">Status</dt>
             <dd class="col-sm-9">
-                <form method="post" action="{{ url_for('api_update_order_status', token=order.token) }}" class="d-flex align-items-center">
+                <form method="post" action="{{ request.url_for('api_update_order_status', token=order.token) }}" class="d-flex align-items-center">
                     <select name="status" class="form-select form-select-sm me-2" style="max-width:200px;">
                         {% for s in statuses %}
                         <option value="{{ s }}" {% if order.status == s %}selected{% endif %}>{{ s }}</option>
@@ -31,11 +31,11 @@
         </dl>
     </div>
     <div class="col-md-4 text-center">
-        <h5>Etiqueta QR Code</h5>
+        <h5>Etiqueta QR Code</h5>
         <img src="{{ order.qr_code_url() }}" alt="QR Code" class="img-fluid mb-2" style="max-width:180px;">
         <br>
         <a href="{{ order.qr_code_url() }}" download="OS_{{ order.id }}_qrcode.png" class="btn btn-sm btn-outline-primary">Download</a>
     </div>
 </div>
-<a class="btn btn-secondary" href="{{ url_for('index') }}">Voltar</a>
+<a class="btn btn-secondary" href="{{ request.url_for('index') }}">Voltar</a>
 {% endblock %}

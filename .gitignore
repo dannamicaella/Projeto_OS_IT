@@ -1,27 +1,10 @@
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-
-# Virtual environment
+.vercel/
 .venv/
 venv/
-env/
-
-# Flask / SQLite
-instance/
-*.db
-
-# QR codes (generated at runtime)
-static/qrcodes/
-
-# Environment variables
-.env
-
-# Build artifacts
-dist/
-build/
-*.zip
-
-# macOS
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
 .DS_Store
+.env*
