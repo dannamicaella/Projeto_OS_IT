@@ -29,6 +29,9 @@
             {% endfor %}
         </select>
     </div>
-    <button type="submit" class="btn btn-primary">Salvar</button>
+    <div class="d-grid d-sm-flex gap-2">
+        <button type="submit" class="btn btn-primary">Salvar</button>
+        <a href="{{ request.url_for('index') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
 </form>
 {% endblock %}

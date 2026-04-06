@@ -355,6 +355,21 @@ async def api_update_order_status(token: str, request: Request):
         db.close()
 
 
+@app.delete('/api/orders/{token}', name='api_delete_order')
+def api_delete_order(token: str):
+    """Delete an order by token."""
+    db = SessionLocal()
+    try:
+        order = db.query(Order).filter_by(token=token).first()
+        if not order:
+            raise HTTPException(status_code=404, detail='not_found')
+        db.delete(order)
+        db.commit()
+        return {'deleted': token}
+    finally:
+        db.close()
+
+
 # ---------------------------------------------------------------------------
 # QR code
 # ---------------------------------------------------------------------------
