@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker *)",
+      "Bash(wait)",
+      "Bash(winget search:*)",
+      "Bash(python -c ':*)",
+      "Bash(python -c \"import sqlalchemy_firebird; print\\(sqlalchemy_firebird.__version__\\)\")",
+      "Bash(pip show:*)",
+      "Bash(python -c \"import sqlalchemy_firebird, inspect; print\\(inspect.getfile\\(sqlalchemy_firebird\\)\\)\")",
+      "Bash(python -c \"import fdb; print\\(fdb.__version__\\)\")",
+      "Bash(python -c \"import fdb, inspect; print\\(inspect.getfile\\(fdb\\)\\)\")",
+      "Bash(python -c \"import sqlalchemy; print\\(sqlalchemy.__version__\\)\")",
+      "Bash(.venv/Scripts/pip show:*)"
+    ]
+  }
+}

@@ -4,34 +4,111 @@
 
 {% block content %}
 <h1>Criar nova Ordem de Serviço</h1>
-<form method="post" action="{{ request.url_for('api_create_order') }}">
+<form method="post" action="{{ request.url_for('api_create_order') }}" id="form-nova-os" novalidate>
     <div class="mb-3">
-        <label for="cliente" class="form-label">Nome do cliente</label>
-        <input type="text" class="form-control" id="cliente" name="cliente" required>
+        <label for="nordem" class="form-label">N° OS <span class="text-danger">*</span></label>
+        <input type="text" class="form-control" id="nordem" name="nordem"
+               placeholder="ex: OS0001" required maxlength="20"
+               value="{{ form_data.nordem if form_data else '' }}">
+        <div class="invalid-feedback">Informe o número da OS (máx. 20 caracteres).</div>
     </div>
     <div class="mb-3">
-        <label for="contato" class="form-label">Contato (telefone ou e-mail)</label>
-        <input type="text" class="form-control" id="contato" name="contato" required>
+        <label for="nomecliente" class="form-label">Cliente <span class="text-danger">*</span></label>
+        <input type="text" class="form-control" id="nomecliente" name="nomecliente"
+               required maxlength="300"
+               value="{{ form_data.nomecliente if form_data else '' }}">
+        <div class="invalid-feedback">Informe o nome do cliente.</div>
     </div>
     <div class="mb-3">
-        <label for="produto" class="form-label">Produto/Equipamento</label>
-        <input type="text" class="form-control" id="produto" name="produto" required>
+        <label for="solicitante" class="form-label">Solicitante</label>
+        <input type="text" class="form-control" id="solicitante" name="solicitante"
+               maxlength="100"
+               value="{{ form_data.solicitante if form_data else '' }}">
     </div>
     <div class="mb-3">
-        <label for="problema" class="form-label">Descrição do problema</label>
-        <textarea class="form-control" id="problema" name="problema" rows="3" required></textarea>
+        <label for="fonesolicitante" class="form-label">Telefone</label>
+        <input type="text" class="form-control" id="fonesolicitante" name="fonesolicitante"
+               maxlength="15" placeholder="ex: (11) 99999-9999"
+               value="{{ form_data.fonesolicitante if form_data else '' }}">
+        <div class="invalid-feedback">Telefone deve ter no máximo 15 caracteres.</div>
     </div>
     <div class="mb-3">
-        <label for="status" class="form-label">Status inicial</label>
-        <select class="form-select" id="status" name="status">
+        <label for="descricao" class="form-label">Equipamento <span class="text-danger">*</span></label>
+        <input type="text" class="form-control" id="descricao" name="descricao"
+               required maxlength="200"
+               value="{{ form_data.descricao if form_data else '' }}">
+        <div class="invalid-feedback">Informe o equipamento (máx. 200 caracteres).</div>
+    </div>
+    <div class="mb-3">
+        <label for="defeito" class="form-label">Defeito relatado</label>
+        <textarea class="form-control" id="defeito" name="defeito" rows="3" maxlength="3000">{{ form_data.defeito if form_data else '' }}</textarea>
+        <div class="form-text">Máx. 3000 caracteres.</div>
+    </div>
+    <div class="mb-3">
+        <label for="situacao" class="form-label">Situação inicial</label>
+        <select class="form-select" id="situacao" name="situacao" required>
             {% for s in statuses %}
-            <option value="{{ s }}">{{ s }}</option>
+            <option value="{{ s }}" {% if form_data and form_data.situacao == s %}selected{% endif %}>{{ s }}</option>
             {% endfor %}
         </select>
+        <div class="invalid-feedback">Selecione uma situação.</div>
     </div>
     <div class="d-grid d-sm-flex gap-2">
         <button type="submit" class="btn btn-primary">Salvar</button>
         <a href="{{ request.url_for('index') }}" class="btn btn-secondary">Cancelar</a>
     </div>
 </form>
+
+<script>
+(function () {
+    'use strict';
+    var form = document.getElementById('form-nova-os');
+
+    form.addEventListener('submit', function (e) {
+        var valid = true;
+
+        // Validate each field individually
+        form.querySelectorAll('[required], [maxlength]').forEach(function (el) {
+            el.classList.remove('is-invalid');
+
+            var val = el.value.trim();
+            var max = el.getAttribute('maxlength');
+
+            if (el.hasAttribute('required') && val === '') {
+                el.classList.add('is-invalid');
+                valid = false;
+            } else if (max && val.length > parseInt(max, 10)) {
+                el.classList.add('is-invalid');
+                valid = false;
+            }
+        });
+
+        // Extra check: trim whitespace-only values for required fields
+        ['nordem', 'nomecliente', 'descricao'].forEach(function (name) {
+            var el = document.getElementById(name);
+            if (el && el.value.trim() === '') {
+                el.classList.add('is-invalid');
+                valid = false;
+            }
+        });
+
+        if (!valid) {
+            e.preventDefault();
+            e.stopPropagation();
+        } else {
+            // Trim leading/trailing whitespace before submission
+            form.querySelectorAll('input[type="text"]').forEach(function (el) {
+                el.value = el.value.trim();
+            });
+        }
+    });
+
+    // Remove invalid state when user corrects the field
+    form.querySelectorAll('input, textarea, select').forEach(function (el) {
+        el.addEventListener('input', function () {
+            el.classList.remove('is-invalid');
+        });
+    });
+}());
+</script>
 {% endblock %}

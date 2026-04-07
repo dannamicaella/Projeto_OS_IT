@@ -1,41 +1,73 @@
 {% extends 'base.html' %}
 
-{% block title %}Detalhes da Ordem - Inovatech OS{% endblock %}
+{% block title %}Detalhes da Ordem {{ order.nordem }} - Inovatech OS{% endblock %}
 
 {% block content %}
-<h1>Ordem #{{ order.id }}</h1>
+<h1>Ordem {{ order.nordem }}</h1>
 <div class="row">
     <div class="col-md-8">
         <dl class="row">
+            <dt class="col-sm-3">N° OS</dt>
+            <dd class="col-sm-9">{{ order.nordem }}</dd>
+
             <dt class="col-sm-3">Cliente</dt>
-            <dd class="col-sm-9">{{ order.cliente }}</dd>
-            <dt class="col-sm-3">Contato</dt>
-            <dd class="col-sm-9">{{ order.contato }}</dd>
-            <dt class="col-sm-3">Produto</dt>
-            <dd class="col-sm-9">{{ order.produto }}</dd>
-            <dt class="col-sm-3">Problema</dt>
-            <dd class="col-sm-9">{{ order.problema }}</dd>
-            <dt class="col-sm-3">Status</dt>
+            <dd class="col-sm-9">{{ order.nomecliente }}</dd>
+
+            <dt class="col-sm-3">Solicitante</dt>
+            <dd class="col-sm-9">{{ order.solicitante or '—' }}</dd>
+
+            <dt class="col-sm-3">Telefone</dt>
+            <dd class="col-sm-9">{{ order.fonesolicitante or '—' }}</dd>
+
+            <dt class="col-sm-3">Equipamento</dt>
+            <dd class="col-sm-9">{{ order.descricao }}</dd>
+
+            <dt class="col-sm-3">Marca</dt>
+            <dd class="col-sm-9">{{ order.marca or '—' }}</dd>
+
+            <dt class="col-sm-3">N° de série</dt>
+            <dd class="col-sm-9">{{ order.nserie or '—' }}</dd>
+
+            <dt class="col-sm-3">Defeito relatado</dt>
+            <dd class="col-sm-9" style="white-space:pre-wrap;">{{ order.defeito or '—' }}</dd>
+
+            <dt class="col-sm-3">Reparo realizado</dt>
+            <dd class="col-sm-9" style="white-space:pre-wrap;">{{ order.reparo or '—' }}</dd>
+
+            <dt class="col-sm-3">Técnico</dt>
+            <dd class="col-sm-9">{{ order.tecnico or '—' }}</dd>
+
+            <dt class="col-sm-3">Situação</dt>
             <dd class="col-sm-9">
-                <form method="post" action="{{ request.url_for('api_update_order_status', token=order.token) }}" class="d-flex flex-wrap align-items-center gap-2">
-                    <select name="status" class="form-select form-select-sm" style="min-width:140px;max-width:220px;flex:1 1 140px;">
+                <form method="post" action="{{ request.url_for('api_update_order_status', nordem=order.nordem) }}" class="d-flex flex-wrap align-items-center gap-2">
+                    <select name="situacao" class="form-select form-select-sm" style="min-width:160px;max-width:240px;flex:1 1 160px;">
                         {% for s in statuses %}
-                        <option value="{{ s }}" {% if order.status == s %}selected{% endif %}>{{ s }}</option>
+                        <option value="{{ s }}" {% if order.situacao == s %}selected{% endif %}>{{ s }}</option>
                         {% endfor %}
                     </select>
                     <button type="submit" class="btn btn-sm btn-primary">Atualizar</button>
                 </form>
             </dd>
-            <dt class="col-sm-3">Data de Entrada</dt>
-            <dd class="col-sm-9">{{ order.data_entrada.strftime('%d/%m/%Y %H:%M') }}</dd>
+
+            <dt class="col-sm-3">Prioridade</dt>
+            <dd class="col-sm-9">{{ order.prioridade or '—' }}</dd>
+
+            <dt class="col-sm-3">Data de entrada</dt>
+            <dd class="col-sm-9">{{ order.datacadastro.strftime('%d/%m/%Y') if order.datacadastro else '—' }}</dd>
+
+            <dt class="col-sm-3">Previsão de entrega</dt>
+            <dd class="col-sm-9">{{ order.datapentrega.strftime('%d/%m/%Y') if order.datapentrega else '—' }}</dd>
+
+            <dt class="col-sm-3">Valor total</dt>
+            <dd class="col-sm-9">{{ 'R$ %.2f'|format(order.vltotal) if order.vltotal else '—' }}</dd>
         </dl>
     </div>
     <div class="col-md-4 text-center mt-4 mt-md-0">
         <h5>Etiqueta QR Code</h5>
-        <img src="{{ order.qr_code_url() }}" alt="QR Code" class="img-fluid mb-2" style="max-width:180px;">
+        <img src="/qr/{{ order.nordem }}.png" alt="QR Code" class="img-fluid mb-2" style="max-width:180px;">
         <br>
-        <a href="{{ order.qr_code_url() }}" download="OS_{{ order.id }}_qrcode.png" class="btn btn-sm btn-outline-primary">Download</a>
+        <a href="/qr/{{ order.nordem }}.png" download="OS_{{ order.nordem }}_qrcode.png" class="btn btn-sm btn-outline-primary">Download</a>
     </div>
 </div>
-<a class="btn btn-secondary" href="{{ request.url_for('index') }}">Voltar</a>
+<a class="btn btn-secondary mt-3" href="{{ request.url_for('index') }}">Voltar</a>
 {% endblock %}

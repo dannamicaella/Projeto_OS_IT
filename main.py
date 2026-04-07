@@ -1,14 +1,12 @@
 """
-FastAPI application for managing Orders of Service (OS) with QR Codes.
-
-Ported from Flask to FastAPI. Supports SQLite (local) and PostgreSQL (Supabase).
+FastAPI application for managing Orders of Service (OS) — reads/writes Firebird (DADOS5.FDB).
 """
 
 import csv
 import io
+import logging
 import os
-import uuid
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
 
@@ -22,7 +20,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, func
+from sqlalchemy import create_engine, Column, Integer, String, Float, Date, ForeignKey, cast, text
+from sqlalchemy import Date as SADate
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 try:
@@ -32,67 +31,138 @@ except ImportError:
 
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:8000').rstrip('/')
 
-# Database setup
-_db_url = os.environ.get('DATABASE_URL', 'sqlite:///os.db')
-# Supabase / Heroku may provide postgres://, SQLAlchemy requires postgresql://
-if _db_url.startswith('postgres://'):
-    _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
+# ---------------------------------------------------------------------------
+# Database setup — Firebird 2.5 (ODS 11.2)
+# charset=WIN1252 is mandatory for Brazilian ERP databases (Delphi encoding).
+# FIREBIRD_FILE must be the path inside the Docker container (e.g. /data/DADOS5.FDB).
+# ---------------------------------------------------------------------------
+fb_host     = os.environ.get('FIREBIRD_HOST', 'localhost')
+fb_port     = os.environ.get('FIREBIRD_PORT', '3050')
+fb_file     = os.environ['FIREBIRD_FILE']
+fb_user     = os.environ.get('FIREBIRD_USER', 'SYSDBA')
+fb_password = os.environ['FIREBIRD_PASSWORD']
 
-engine_kwargs: dict = {}
-if not _db_url.startswith('sqlite'):
-    # Supabase / serverless-friendly engine options.
-    # prepare_threshold=None disables server-side prepared statements, required
-    # when using Supabase's transaction-mode connection pooler (port 6543).
-    engine_kwargs = {
-        'pool_pre_ping': True,
-        'pool_size': 1,
-        'max_overflow': 0,
-        'pool_recycle': 300,
-        'connect_args': {
-            'sslmode': 'require',
-            'prepare_threshold': None,
-        },
-    }
+_db_url = f"firebird+fdb://{fb_user}:{fb_password}@{fb_host}:{fb_port}/{fb_file}?charset=NONE"
 
-engine = create_engine(_db_url, **engine_kwargs)
+engine       = create_engine(_db_url, pool_pre_ping=True)
+
+# Firebird 2.5 does not support RETURNING clause — sqlalchemy-firebird 2.1
+# leaves insert_returning=True at class level and only fixes it inside
+# dialect.initialize(), which runs on first connect. Force it off early so
+# the compiled INSERT never includes a RETURNING clause, which would cause
+# a TypeError in SQLAlchemy's result-processing code.
+engine.dialect.insert_returning = False
+engine.dialect.update_returning = False
+engine.dialect.delete_returning = False
+
 SessionLocal = sessionmaker(bind=engine)
-Base = declarative_base()
+Base         = declarative_base()
 
 
-class Order(Base):
-    """Represents an order of service entry."""
-    __tablename__ = 'order'
+# ---------------------------------------------------------------------------
+# Models
+# ---------------------------------------------------------------------------
 
-    id = Column(Integer, primary_key=True)
-    token = Column(String(64), unique=True, nullable=False)
-    cliente = Column(String(120), nullable=False)
-    contato = Column(String(120), nullable=False)
-    produto = Column(String(120), nullable=False)
-    problema = Column(Text, nullable=False)
-    status = Column(String(50), default='Recebido', nullable=False)
-    data_entrada = Column(DateTime, default=datetime.utcnow)
+class OrdemServico(Base):
+    __tablename__ = 'ORDEMSERVICO'
 
-    def qr_code_url(self) -> str:
-        """Return the URL for the QR code image (generated on-the-fly)."""
-        return f"/qr/{self.token}.png"
+    idordem          = Column(Integer, primary_key=True)
+    empresa          = Column(Integer)
+    nordem           = Column(String(20))
+    datacadastro     = Column(Date)
+    nprotocolo       = Column(String(50))
+    idcliente        = Column(String(20))
+    nomecliente      = Column(String(300))
+    solicitante      = Column(String(100))
+    fonesolicitante  = Column(String(15))
+    descricao        = Column(String(200))
+    nserie           = Column(String(30))
+    marca            = Column(String(100))
+    situacao         = Column(String(30))
+    volts            = Column(String(10))
+    idvendedor       = Column(Integer)
+    vendedor         = Column(String(100))
+    idtecnico        = Column(Integer)
+    tecnico          = Column(String(100))
+    datapentrega     = Column(Date)
+    datapentregadias = Column(Integer)
+    dataconclusao    = Column(Date)
+    dataentrega      = Column(Date)
+    horaini          = Column(String(10))
+    horafin          = Column(String(10))
+    horatotal        = Column(String(10))
+    tipoatendimento  = Column(String(100))
+    localatendimento = Column(String(100))
+    defeito          = Column(String(3000))
+    reparo           = Column(String(3000))
+    anota            = Column(String(10000))
+    garantiaanota    = Column(String(10000))
+    garantia         = Column(String(10))
+    garantiadata     = Column(Date)
+    vlpecas          = Column(Float)
+    vlservicos       = Column(Float)
+    vldeslocamento   = Column(Float)
+    kmtotal          = Column(Float)
+    vldesconto       = Column(Float)
+    vlacrescimo      = Column(Float)
+    vltotal          = Column(Float)
+    vlsaldo          = Column(Float)
+    formadepagto     = Column(String(50))
+    condpagtocod     = Column(String(2))
+    condpagto        = Column(String(20))
+    prioridade       = Column(String(20))
+    dataalt          = Column(Date)
+    usuarioalt       = Column(String(30))
+    datacad          = Column(Date)
+    usuariocad       = Column(String(30))
+    osmail           = Column(String(300))
+    dataaprovacao    = Column(Date)
 
 
-# Create tables at import time so Vercel's serverless runtime creates them
-# on first cold start without needing a separate migration step.
-# Wrapped in try/except so a DB connectivity issue doesn't crash startup outright.
-try:
-    Base.metadata.create_all(engine)
-except Exception as _create_err:
-    import warnings
-    warnings.warn(f"Could not create tables on startup: {_create_err}")
+class OsHist(Base):
+    __tablename__ = 'OSHIST'
 
-COLOR_MAP = {
-    'Recebido': '#28a745',
-    'Em análise': '#ffc107',
-    'Aguardando aprovação': '#fd7e14',
-    'Em execução': '#d63384',
-    'Pronto': '#0d6efd',
+    idoshist = Column(Integer, primary_key=True)
+    empresa  = Column(Integer)
+    idordem  = Column(Integer, ForeignKey('ORDEMSERVICO.IDORDEM'))
+    situacao = Column(String(30))
+    data     = Column(Date)
+    hora     = Column(String(10))
+    usuario  = Column(String(30))
+
+
+# ---------------------------------------------------------------------------
+# Load COLOR_MAP from OSTIPO at startup
+# ---------------------------------------------------------------------------
+
+_DELPHI_TO_CSS = {
+    'clGreen':  '#28a745',
+    'clRed':    '#dc3545',
+    'clGray':   '#6c757d',
+    'clPurple': '#6f42c1',
+    'clTeal':   '#20c997',
+    'clBlue':   '#0d6efd',
 }
+
+def _decode(v):
+    if isinstance(v, (bytes, bytearray)):
+        return v.decode('win1252', errors='replace').strip()
+    return v.strip() if isinstance(v, str) else v
+
+def _load_color_map(db) -> dict:
+    rows = db.execute(text("SELECT SITUACAO, COR FROM OSTIPO")).fetchall()
+    return {_decode(r[0]): _DELPHI_TO_CSS.get(_decode(r[1]), '#6c757d') for r in rows}
+
+_db = SessionLocal()
+try:
+    COLOR_MAP = _load_color_map(_db)
+finally:
+    _db.close()
+
+
+# ---------------------------------------------------------------------------
+# App setup
+# ---------------------------------------------------------------------------
 
 BASE_DIR = Path(__file__).parent
 
@@ -110,29 +180,45 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _order_to_dict(order: Order) -> dict:
+def _order_to_dict(order: OrdemServico) -> dict:
     return {
-        'id': order.id,
-        'token': order.token,
-        'cliente': order.cliente,
-        'contato': order.contato,
-        'produto': order.produto,
-        'problema': order.problema,
-        'status': order.status,
-        'data_entrada': order.data_entrada.isoformat(),
+        'idordem':         order.idordem,
+        'nordem':          order.nordem,
+        'nomecliente':     order.nomecliente,
+        'solicitante':     order.solicitante,
+        'fonesolicitante': order.fonesolicitante,
+        'descricao':       order.descricao,
+        'defeito':         order.defeito,
+        'reparo':          order.reparo,
+        'situacao':        order.situacao,
+        'tecnico':         order.tecnico,
+        'marca':           order.marca,
+        'nserie':          order.nserie,
+        'vltotal':         order.vltotal,
+        'datacadastro':    order.datacadastro.isoformat() if order.datacadastro else None,
+        'datapentrega':    order.datapentrega.isoformat() if order.datapentrega else None,
+        'prioridade':      order.prioridade,
     }
 
 
-def _filtered_query(db, status: Optional[str] = None, start: Optional[str] = None, end: Optional[str] = None):
-    """Return an Order query filtered by the given params."""
-    q = db.query(Order)
-    if status:
-        q = q.filter(Order.status == status)
+def _filtered_query(db, situacao: Optional[str] = None, start: Optional[str] = None, end: Optional[str] = None):
+    q = db.query(OrdemServico)
+    if situacao:
+        q = q.filter(OrdemServico.situacao == situacao)
     if start:
-        q = q.filter(func.date(Order.data_entrada) >= start)
+        q = q.filter(cast(OrdemServico.datacadastro, SADate) >= start)
     if end:
-        q = q.filter(func.date(Order.data_entrada) <= end)
+        q = q.filter(cast(OrdemServico.datacadastro, SADate) <= end)
     return q
+
+
+def _db_error_message(exc: Exception) -> str:
+    """Extract a readable message from a SQLAlchemy/Firebird exception."""
+    cause = getattr(exc, 'orig', None) or getattr(exc, '__cause__', None)
+    msg = str(cause) if cause else str(exc)
+    # Strip SQLAlchemy wrapper lines — keep only the first meaningful line
+    first_line = msg.strip().splitlines()[0] if msg.strip() else msg
+    return first_line or 'Erro desconhecido.'
 
 
 def _flash(request: Request, message: str, category: str = 'info') -> None:
@@ -152,16 +238,14 @@ def _pop_flash(request: Request) -> list:
 # ---------------------------------------------------------------------------
 
 @app.get('/', response_class=HTMLResponse, name='index')
-def index(request: Request, status: str = '', start: str = '', end: str = ''):
-    """Display a list of all orders with optional status/date filters."""
+def index(request: Request, situacao: str = '', start: str = '', end: str = ''):
     db = SessionLocal()
     try:
-        q = _filtered_query(db, status or None, start or None, end or None)
-        orders = q.order_by(Order.data_entrada.desc()).all()
-        # Build export URL with same filters
+        q = _filtered_query(db, situacao or None, start or None, end or None)
+        orders = q.order_by(OrdemServico.datacadastro.desc()).all()
         params = []
-        if status:
-            params.append(f'status={status}')
+        if situacao:
+            params.append(f'situacao={situacao}')
         if start:
             params.append(f'start={start}')
         if end:
@@ -170,7 +254,7 @@ def index(request: Request, status: str = '', start: str = '', end: str = ''):
         return templates.TemplateResponse(request, 'list_os.html', {
             'orders': orders,
             'color_map': COLOR_MAP,
-            'status_filter': status,
+            'status_filter': situacao,
             'date_from': start,
             'date_to': end,
             'export_url': f'/export{qs}',
@@ -182,23 +266,22 @@ def index(request: Request, status: str = '', start: str = '', end: str = ''):
 
 @app.get('/new', response_class=HTMLResponse, name='new_order')
 def new_order(request: Request):
-    """Render the new order form."""
     return templates.TemplateResponse(request, 'new_os.html', {
         'statuses': list(COLOR_MAP.keys()),
         'messages': _pop_flash(request),
     })
 
 
-@app.get('/os/{token}', response_class=HTMLResponse, name='order_detail')
-def order_detail(token: str, request: Request):
-    """Show the details of a single order using its unique token."""
+@app.get('/os/{nordem}', response_class=HTMLResponse, name='order_detail')
+def order_detail(nordem: str, request: Request):
     db = SessionLocal()
     try:
-        order = db.query(Order).filter_by(token=token).first()
+        order = db.query(OrdemServico).filter(OrdemServico.nordem == int(nordem)).first()
         if not order:
             raise HTTPException(status_code=404)
         return templates.TemplateResponse(request, 'os_detail.html', {
             'order': order,
+            'color_map': COLOR_MAP,
             'statuses': list(COLOR_MAP.keys()),
             'messages': _pop_flash(request),
         })
@@ -211,20 +294,27 @@ def order_detail(token: str, request: Request):
 # ---------------------------------------------------------------------------
 
 @app.get('/export', name='export_orders')
-def export_orders(status: str = '', start: str = '', end: str = ''):
-    """Export orders as CSV, respecting the same filters as the list view."""
+def export_orders(situacao: str = '', start: str = '', end: str = ''):
     db = SessionLocal()
     try:
-        q = _filtered_query(db, status or None, start or None, end or None)
-        orders = q.order_by(Order.data_entrada.desc()).all()
+        q = _filtered_query(db, situacao or None, start or None, end or None)
+        orders = q.order_by(OrdemServico.datacadastro.desc()).all()
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(['id', 'token', 'cliente', 'contato', 'produto', 'problema', 'status', 'data_entrada'])
+        writer.writerow([
+            'nordem', 'nomecliente', 'solicitante', 'fonesolicitante',
+            'descricao', 'defeito', 'reparo', 'situacao',
+            'tecnico', 'marca', 'nserie', 'vltotal',
+            'datacadastro', 'datapentrega', 'prioridade',
+        ])
         for o in orders:
             writer.writerow([
-                o.id, o.token, o.cliente, o.contato,
-                o.produto, o.problema, o.status,
-                o.data_entrada.isoformat(),
+                o.nordem, o.nomecliente, o.solicitante, o.fonesolicitante,
+                o.descricao, o.defeito, o.reparo, o.situacao,
+                o.tecnico, o.marca, o.nserie, o.vltotal,
+                o.datacadastro.isoformat() if o.datacadastro else '',
+                o.datapentrega.isoformat() if o.datapentrega else '',
+                o.prioridade,
             ])
         return Response(
             content=output.getvalue(),
@@ -240,23 +330,21 @@ def export_orders(status: str = '', start: str = '', end: str = ''):
 # ---------------------------------------------------------------------------
 
 @app.get('/api/orders', name='api_list_orders')
-def api_list_orders(status: str = '', start: str = '', end: str = ''):
-    """Return all orders (with optional filters) as JSON."""
+def api_list_orders(situacao: str = '', start: str = '', end: str = ''):
     db = SessionLocal()
     try:
-        q = _filtered_query(db, status or None, start or None, end or None)
-        orders = q.order_by(Order.data_entrada.desc()).all()
+        q = _filtered_query(db, situacao or None, start or None, end or None)
+        orders = q.order_by(OrdemServico.datacadastro.desc()).all()
         return {'orders': [_order_to_dict(o) for o in orders]}
     finally:
         db.close()
 
 
-@app.get('/api/orders/{token}', name='api_get_order')
-def api_get_order(token: str):
-    """Return a single order by token as JSON."""
+@app.get('/api/orders/{nordem}', name='api_get_order')
+def api_get_order(nordem: str):
     db = SessionLocal()
     try:
-        order = db.query(Order).filter_by(token=token).first()
+        order = db.query(OrdemServico).filter(OrdemServico.nordem == int(nordem)).first()
         if not order:
             raise HTTPException(status_code=404, detail='not_found')
         return _order_to_dict(order)
@@ -266,11 +354,6 @@ def api_get_order(token: str):
 
 @app.post('/api/orders', name='api_create_order')
 async def api_create_order(request: Request):
-    """Create a new order via JSON or form data.
-
-    JSON callers receive a 201 response with the created order.
-    Browser form submissions are redirected to the index page.
-    """
     content_type = request.headers.get('content-type', '')
     is_json = 'application/json' in content_type
 
@@ -280,52 +363,71 @@ async def api_create_order(request: Request):
         form = await request.form()
         data = dict(form)
 
-    cliente = (data.get('cliente') or '').strip()
-    contato = (data.get('contato') or '').strip()
-    produto = (data.get('produto') or '').strip()
-    problema = (data.get('problema') or '').strip()
-    status_val = (data.get('status') or 'Recebido').strip() or 'Recebido'
+    nordem      = (data.get('nordem') or '').strip()
+    nomecliente = (data.get('nomecliente') or '').strip()
+    solicitante = (data.get('solicitante') or '').strip()
+    descricao   = (data.get('descricao') or '').strip()
+    defeito     = (data.get('defeito') or '').strip()
+    situacao    = (data.get('situacao') or 'Em Andamento').strip() or 'Em Andamento'
 
-    if not (cliente and contato and produto and problema):
+    if not (nordem and nomecliente and descricao):
         if is_json:
             raise HTTPException(status_code=400, detail='missing_fields')
-        _flash(request, 'Todos os campos são obrigatórios.', 'danger')
+        _flash(request, 'N° OS, cliente e equipamento são obrigatórios.', 'danger')
         return templates.TemplateResponse(request, 'new_os.html', {
             'statuses': list(COLOR_MAP.keys()),
             'messages': _pop_flash(request),
         }, status_code=422)
 
-    token = uuid.uuid4().hex
     db = SessionLocal()
     try:
-        order = Order(
-            token=token, cliente=cliente, contato=contato,
-            produto=produto, problema=problema, status=status_val,
+        next_id = db.execute(
+            text("SELECT GEN_ID(GEN_ORDEMSERVICO_ID, 1) FROM RDB$DATABASE")
+        ).scalar()
+        order = OrdemServico(
+            idordem      = next_id,
+            nordem       = nordem,
+            nomecliente  = nomecliente,
+            solicitante  = solicitante,
+            fonesolicitante = (data.get('fonesolicitante') or '').strip(),
+            descricao    = descricao,
+            defeito      = defeito,
+            situacao     = situacao,
+            datacadastro = date.today(),
+            datacad      = date.today(),
+            usuariocad   = 'sistema',
         )
         db.add(order)
         db.commit()
         db.refresh(order)
         if is_json:
             return JSONResponse(_order_to_dict(order), status_code=201)
-        _flash(request, 'Ordem criada com sucesso! Etiqueta com QR gerada.', 'success')
+        _flash(request, 'Ordem criada com sucesso!', 'success')
         return RedirectResponse(url='/', status_code=303)
+    except Exception as exc:
+        db.rollback()
+        logging.exception("Erro ao criar ordem de serviço")
+        error_msg = _db_error_message(exc)
+        if is_json:
+            raise HTTPException(status_code=500, detail=error_msg)
+        _flash(request, f'Erro ao salvar: {error_msg}', 'danger')
+        return templates.TemplateResponse(request, 'new_os.html', {
+            'statuses': list(COLOR_MAP.keys()),
+            'messages': _pop_flash(request),
+            'form_data': data,
+        }, status_code=422)
     finally:
         db.close()
 
 
-@app.post('/api/orders/{token}/status', name='api_update_order_status')
-async def api_update_order_status(token: str, request: Request):
-    """Update an order's status via JSON or form data.
-
-    JSON callers receive the updated order.
-    Browser form submissions are redirected to the order detail page.
-    """
+@app.post('/api/orders/{nordem}/status', name='api_update_order_status')
+async def api_update_order_status(nordem: str, request: Request):
     content_type = request.headers.get('content-type', '')
     is_json = 'application/json' in content_type
 
     db = SessionLocal()
     try:
-        order = db.query(Order).filter_by(token=token).first()
+        order = db.query(OrdemServico).filter(OrdemServico.nordem == int(nordem)).first()
         if not order:
             if is_json:
                 raise HTTPException(status_code=404, detail='not_found')
@@ -337,35 +439,42 @@ async def api_update_order_status(token: str, request: Request):
             form = await request.form()
             data = dict(form)
 
-        new_status = (data.get('status') or '').strip()
-        if not new_status:
+        new_situacao = (data.get('situacao') or data.get('status') or '').strip()
+        if not new_situacao:
             if is_json:
-                raise HTTPException(status_code=400, detail='missing_status')
-            return RedirectResponse(url=f'/os/{token}', status_code=303)
+                raise HTTPException(status_code=400, detail='missing_situacao')
+            return RedirectResponse(url=f'/os/{nordem}', status_code=303)
 
-        order.status = new_status
+        order.situacao = new_situacao
+        hist = OsHist(
+            idordem  = order.idordem,
+            empresa  = order.empresa,
+            situacao = new_situacao,
+            data     = date.today(),
+            hora     = datetime.now().strftime('%H:%M'),
+            usuario  = data.get('usuario') or 'sistema',
+        )
+        db.add(hist)
         db.commit()
-        db.refresh(order)
 
         if is_json:
-            return _order_to_dict(order)
+            return JSONResponse({'ok': True, 'situacao': new_situacao})
         _flash(request, 'Status atualizado.', 'success')
-        return RedirectResponse(url=f'/os/{token}', status_code=303)
+        return RedirectResponse(url=f'/os/{nordem}', status_code=303)
     finally:
         db.close()
 
 
-@app.delete('/api/orders/{token}', name='api_delete_order')
-def api_delete_order(token: str):
-    """Delete an order by token."""
+@app.delete('/api/orders/{nordem}', name='api_delete_order')
+def api_delete_order(nordem: str):
     db = SessionLocal()
     try:
-        order = db.query(Order).filter_by(token=token).first()
+        order = db.query(OrdemServico).filter(OrdemServico.nordem == int(nordem)).first()
         if not order:
             raise HTTPException(status_code=404, detail='not_found')
         db.delete(order)
         db.commit()
-        return {'deleted': token}
+        return JSONResponse({'ok': True})
     finally:
         db.close()
 
@@ -374,12 +483,11 @@ def api_delete_order(token: str):
 # QR code
 # ---------------------------------------------------------------------------
 
-@app.get('/qr/{token}.png', name='qr_code_image')
-def qr_code_image(token: str):
-    """Generate and return the QR code image for an order on-the-fly."""
+@app.get('/qr/{nordem}.png', name='qr_code_image')
+def qr_code_image(nordem: str):
     db = SessionLocal()
     try:
-        order = db.query(Order).filter_by(token=token).first()
+        order = db.query(OrdemServico).filter(OrdemServico.nordem == int(nordem)).first()
         if not order:
             raise HTTPException(status_code=404)
     finally:
@@ -387,7 +495,7 @@ def qr_code_image(token: str):
 
     img_io = io.BytesIO()
     if qrcode:
-        qr_img = qrcode.make(f"{FRONTEND_URL}/os/{token}")
+        qr_img = qrcode.make(f"{FRONTEND_URL}/os/{nordem}")
         qr_img.save(img_io, format='PNG')
     img_io.seek(0)
     return Response(content=img_io.read(), media_type='image/png')
@@ -397,4 +505,3 @@ if __name__ == '__main__':
     import uvicorn
     port = int(os.environ.get('PORT', 8000))
     uvicorn.run('main:app', host='0.0.0.0', port=port, reload=True)
-

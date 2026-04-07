@@ -1,9 +1,10 @@
 fastapi
 uvicorn
 sqlalchemy
+sqlalchemy-firebird
+fdb
 qrcode[pil]
 python-dotenv
-psycopg2-binary~=2.9.3
 python-multipart
 jinja2
 itsdangerous
