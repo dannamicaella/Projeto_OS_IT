@@ -7,6 +7,7 @@ import io
 import logging
 import os
 import socket
+from contextlib import asynccontextmanager
 from math import ceil
 from datetime import date, datetime
 from pathlib import Path
@@ -169,7 +170,14 @@ finally:
 
 BASE_DIR = Path(__file__).parent
 
-app = FastAPI(title="Inovatech OS")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    _refresh_runtime_network_metadata()
+    yield
+
+
+app = FastAPI(title="Inovatech OS", lifespan=lifespan)
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.environ.get('SECRET_KEY', 'dev-only-insecure-key'),
@@ -226,10 +234,6 @@ def _get_template_runtime_context() -> dict:
         'public_base_url': _get_public_base_url(),
         'app_port': APP_PORT,
     }
-
-@app.on_event('startup')
-def _cache_runtime_network_metadata() -> None:
-    _refresh_runtime_network_metadata()
 
 
 # ---------------------------------------------------------------------------
