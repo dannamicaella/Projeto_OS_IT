@@ -205,7 +205,13 @@ def _order_to_dict(order: OrdemServico) -> dict:
     }
 
 
-def _filtered_query(db, situacao: Optional[str] = None, start: Optional[str] = None, end: Optional[str] = None):
+def _filtered_query(
+    db,
+    situacao: Optional[str] = None,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    search: Optional[str] = None,
+):
     q = db.query(OrdemServico)
     if situacao:
         q = q.filter(OrdemServico.situacao == situacao)
@@ -213,6 +219,19 @@ def _filtered_query(db, situacao: Optional[str] = None, start: Optional[str] = N
         q = q.filter(cast(OrdemServico.datacadastro, SADate) >= start)
     if end:
         q = q.filter(cast(OrdemServico.datacadastro, SADate) <= end)
+    if search:
+        search_value = search.strip()
+        if search_value:
+            q = q.filter(
+                text(
+                    "("
+                    "NORDEM CONTAINING :search "
+                    "OR NOMECLIENTE CONTAINING :search "
+                    "OR DESCRICAO CONTAINING :search"
+                    ")"
+                )
+            )
+            q = q.params(search=search_value)
     return q
 
 
@@ -224,6 +243,7 @@ def _list_query_params(
     situacao: str = '',
     start: str = '',
     end: str = '',
+    search: str = '',
     page: Optional[int] = None,
 ) -> dict:
     params = {}
@@ -233,6 +253,8 @@ def _list_query_params(
         params['start'] = start
     if end:
         params['end'] = end
+    if search:
+        params['search'] = search
     if page and page > 1:
         params['page'] = page
     return params
@@ -242,9 +264,10 @@ def _build_list_url(
     situacao: str = '',
     start: str = '',
     end: str = '',
+    search: str = '',
     page: Optional[int] = None,
 ) -> str:
-    params = _list_query_params(situacao, start, end, page)
+    params = _list_query_params(situacao, start, end, search, page)
     query = urlencode(params)
     return f'/?{query}' if query else '/'
 
@@ -267,6 +290,51 @@ def _build_pagination_items(current_page: int, total_pages: int) -> list[dict]:
         items.append({'kind': 'page', 'number': page, 'is_current': page == current_page})
         previous_page = page
     return items
+
+
+def _build_index_context(
+    request: Request,
+    orders: list[OrdemServico],
+    situacao: str,
+    start: str,
+    end: str,
+    search: str,
+    page: int,
+    total_orders: int,
+    total_pages: int,
+) -> dict:
+    offset = (page - 1) * PAGE_SIZE
+    start_index = offset + 1 if total_orders else 0
+    end_index = min(offset + PAGE_SIZE, total_orders)
+    base_params = _list_query_params(situacao, start, end, search)
+
+    return {
+        'request': request,
+        'orders': orders,
+        'color_map': COLOR_MAP,
+        'status_filter': situacao,
+        'date_from': start,
+        'date_to': end,
+        'search_term': search,
+        'export_url': f"/export?{urlencode(base_params)}" if base_params else '/export',
+        'list_url': _build_list_url(situacao, start, end, search, page),
+        'list_url_encoded': quote(_build_list_url(situacao, start, end, search, page), safe=''),
+        'current_page': page,
+        'total_pages': total_pages,
+        'total_orders': total_orders,
+        'page_size': PAGE_SIZE,
+        'start_index': start_index,
+        'end_index': end_index,
+        'prev_page_url': _build_list_url(situacao, start, end, search, page - 1) if page > 1 else None,
+        'next_page_url': _build_list_url(situacao, start, end, search, page + 1) if page < total_pages else None,
+        'pagination_items': [
+            {
+                **item,
+                'url': _build_list_url(situacao, start, end, search, item['number']),
+            } if item['kind'] == 'page' else item
+            for item in _build_pagination_items(page, total_pages)
+        ],
+    }
 
 
 def _db_error_message(exc: Exception) -> str:
@@ -295,10 +363,10 @@ def _pop_flash(request: Request) -> list:
 # ---------------------------------------------------------------------------
 
 @app.get('/', response_class=HTMLResponse, name='index')
-def index(request: Request, situacao: str = '', start: str = '', end: str = '', page: int = 1):
+def index(request: Request, situacao: str = '', start: str = '', end: str = '', search: str = '', page: int = 1):
     db = SessionLocal()
     try:
-        q = _filtered_query(db, situacao or None, start or None, end or None)
+        q = _filtered_query(db, situacao or None, start or None, end or None, search or None)
         total_orders = q.count()
         total_pages = max(ceil(total_orders / PAGE_SIZE), 1)
         page = min(_coerce_page(page), total_pages)
@@ -309,34 +377,21 @@ def index(request: Request, situacao: str = '', start: str = '', end: str = '', 
             .limit(PAGE_SIZE)
             .all()
         )
-        start_index = offset + 1 if total_orders else 0
-        end_index = min(offset + PAGE_SIZE, total_orders)
-        return templates.TemplateResponse(request, 'list_os.html', {
-            'orders': orders,
-            'color_map': COLOR_MAP,
-            'status_filter': situacao,
-            'date_from': start,
-            'date_to': end,
-            'export_url': f"/export?{urlencode(_list_query_params(situacao, start, end))}" if _list_query_params(situacao, start, end) else '/export',
-            'list_url': _build_list_url(situacao, start, end, page),
-            'list_url_encoded': quote(_build_list_url(situacao, start, end, page), safe=''),
-            'current_page': page,
-            'total_pages': total_pages,
-            'total_orders': total_orders,
-            'page_size': PAGE_SIZE,
-            'start_index': start_index,
-            'end_index': end_index,
-            'prev_page_url': _build_list_url(situacao, start, end, page - 1) if page > 1 else None,
-            'next_page_url': _build_list_url(situacao, start, end, page + 1) if page < total_pages else None,
-            'pagination_items': [
-                {
-                    **item,
-                    'url': _build_list_url(situacao, start, end, item['number']),
-                } if item['kind'] == 'page' else item
-                for item in _build_pagination_items(page, total_pages)
-            ],
-            'messages': _pop_flash(request),
-        })
+        context = _build_index_context(
+            request=request,
+            orders=orders,
+            situacao=situacao,
+            start=start,
+            end=end,
+            search=search,
+            page=page,
+            total_orders=total_orders,
+            total_pages=total_pages,
+        )
+        if request.headers.get('x-partial-render') == 'order-list':
+            return templates.TemplateResponse(request, '_order_list_content.html', context)
+        context['messages'] = _pop_flash(request)
+        return templates.TemplateResponse(request, 'list_os.html', context)
     finally:
         db.close()
 
@@ -372,10 +427,10 @@ def order_detail(nordem: str, request: Request, return_to: str = '/'):
 # ---------------------------------------------------------------------------
 
 @app.get('/export', name='export_orders')
-def export_orders(situacao: str = '', start: str = '', end: str = ''):
+def export_orders(situacao: str = '', start: str = '', end: str = '', search: str = ''):
     db = SessionLocal()
     try:
-        q = _filtered_query(db, situacao or None, start or None, end or None)
+        q = _filtered_query(db, situacao or None, start or None, end or None, search or None)
         orders = q.order_by(OrdemServico.datacadastro.desc()).all()
         output = io.StringIO()
         writer = csv.writer(output)
@@ -408,10 +463,10 @@ def export_orders(situacao: str = '', start: str = '', end: str = ''):
 # ---------------------------------------------------------------------------
 
 @app.get('/api/orders', name='api_list_orders')
-def api_list_orders(situacao: str = '', start: str = '', end: str = '', page: int = 1):
+def api_list_orders(situacao: str = '', start: str = '', end: str = '', search: str = '', page: int = 1):
     db = SessionLocal()
     try:
-        q = _filtered_query(db, situacao or None, start or None, end or None)
+        q = _filtered_query(db, situacao or None, start or None, end or None, search or None)
         total_orders = q.count()
         total_pages = max(ceil(total_orders / PAGE_SIZE), 1)
         page = min(_coerce_page(page), total_pages)
