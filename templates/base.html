@@ -334,6 +334,111 @@
             font-size: 18px;
             line-height: 1;
         }
+        .qr-modal[hidden] { display: none; }
+        .qr-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 70;
+            display: grid;
+            place-items: center;
+            padding: 20px;
+            background: rgba(4, 5, 6, 0.78);
+            backdrop-filter: blur(18px);
+        }
+        .qr-modal__dialog {
+            width: min(100%, 560px);
+            padding: 20px;
+            border-radius: 18px;
+            border: 1px solid var(--border);
+            background: linear-gradient(180deg, rgba(15, 16, 17, 0.98) 0%, rgba(8, 9, 10, 0.98) 100%);
+            box-shadow: var(--shadow-ring), var(--shadow-soft);
+        }
+        .qr-modal__header,
+        .qr-modal__footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .qr-modal__header { margin-bottom: 16px; }
+        .qr-modal__footer {
+            margin-top: 16px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        .qr-modal__title {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 590;
+            letter-spacing: -0.24px;
+        }
+        .qr-modal__close {
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            border-radius: 999px;
+            font-size: 20px;
+            line-height: 1;
+        }
+        .qr-modal__body { display: grid; gap: 14px; }
+        .qr-scanner {
+            position: relative;
+            overflow: hidden;
+            aspect-ratio: 4 / 3;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
+                #050607;
+        }
+        .qr-scanner video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            background: #020304;
+        }
+        .qr-scanner__overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background:
+                linear-gradient(rgba(5, 6, 7, 0.05), rgba(5, 6, 7, 0.22)),
+                radial-gradient(circle at center, transparent 32%, rgba(5, 6, 7, 0.3) 100%);
+        }
+        .qr-scanner__frame {
+            position: absolute;
+            inset: 50%;
+            width: min(62vw, 220px);
+            height: min(62vw, 220px);
+            transform: translate(-50%, -50%);
+            border-radius: 24px;
+            border: 2px solid rgba(255, 255, 255, 0.82);
+            box-shadow: 0 0 0 999px rgba(5, 6, 7, 0.2);
+        }
+        .qr-modal__status {
+            margin: 0;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+        .qr-modal__status.is-error { color: #f3cad2; }
+        .qr-modal__status.is-success { color: #c5f5e4; }
+        .qr-modal__raw {
+            display: none;
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 1px solid rgba(198, 91, 109, 0.28);
+            background: rgba(198, 91, 109, 0.08);
+            color: #f8d9e0;
+            font-size: 13px;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+        .qr-modal__raw.is-visible { display: block; }
+        .qr-modal__hint {
+            color: var(--text-faint);
+            font-size: 12px;
+            line-height: 1.45;
+        }
         .kpi-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
         .kpi { padding: 18px; }
         .kpi__label {
@@ -368,8 +473,15 @@
             .panel { padding: 18px; }
             .hero { padding-top: 4px; }
             .hero__title { font-size: 32px; letter-spacing: -0.704px; }
+            .qr-modal { padding: 14px; }
+            .qr-modal__dialog { padding: 16px; }
+            .qr-scanner__frame {
+                width: min(62vw, 180px);
+                height: min(62vw, 180px);
+            }
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
     {% block head_extra %}{% endblock %}
 </head>
 <body>
@@ -384,10 +496,35 @@
             </a>
             <nav class="nav-links" id="navLinks">
                 <a class="nav-link {% if request.url.path == '/' %}is-active{% endif %}" href="{{ request.url_for('index') }}">Ordens</a>
-                <a class="btn btn--primary {% if request.url.path == '/new' %}is-active{% endif %}" href="{{ request.url_for('new_order') }}">Nova ordem</a>
+                <button class="btn btn--primary" type="button" id="openQrScanner">Scan QR</button>
             </nav>
         </div>
     </header>
+    <div class="qr-modal" id="qrScannerModal" hidden>
+        <div class="qr-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="qrScannerTitle">
+            <div class="qr-modal__header">
+                <div>
+                    <h2 class="qr-modal__title" id="qrScannerTitle">Scan QR da OS</h2>
+                    <p class="section-subtitle">Use a camera do celular ou a webcam para abrir os detalhes da ordem.</p>
+                </div>
+                <button class="btn qr-modal__close" type="button" id="closeQrScanner" aria-label="Fechar scanner">&times;</button>
+            </div>
+            <div class="qr-modal__body">
+                <div class="qr-scanner">
+                    <video id="qrScannerVideo" playsinline muted></video>
+                    <div class="qr-scanner__overlay"></div>
+                    <div class="qr-scanner__frame"></div>
+                </div>
+                <p class="qr-modal__status" id="qrScannerStatus">Aguardando permissao da camera...</p>
+                <div class="qr-modal__raw" id="qrScannerRaw"></div>
+                <div class="qr-modal__hint">Se o QR estiver com IP antigo, o sistema corrige o host para o IP atual da rede antes de redirecionar.</div>
+            </div>
+            <div class="qr-modal__footer">
+                <button class="btn" type="button" id="retryQrScanner">Escanear novamente</button>
+                <button class="btn" type="button" id="cancelQrScanner">Fechar</button>
+            </div>
+        </div>
+    </div>
     <main class="page">
         <div class="shell page-stack">
             {% if messages %}
@@ -406,11 +543,274 @@
     </main>
     <script>
         (function () {
+            const scannerConfig = {
+                publicBaseUrl: {{ public_base_url|default('', true)|tojson }},
+                runtimeNetworkIp: {{ runtime_network_ip|default('', true)|tojson }},
+                appPort: {{ app_port|default('', true)|tojson }}
+            };
+
             document.querySelectorAll(".flash__close").forEach(function (button) {
                 button.addEventListener("click", function () {
                     const flash = button.closest(".flash");
                     if (flash) flash.remove();
                 });
+            });
+
+            const openButton = document.getElementById("openQrScanner");
+            const modal = document.getElementById("qrScannerModal");
+            const closeButton = document.getElementById("closeQrScanner");
+            const cancelButton = document.getElementById("cancelQrScanner");
+            const retryButton = document.getElementById("retryQrScanner");
+            const video = document.getElementById("qrScannerVideo");
+            const status = document.getElementById("qrScannerStatus");
+            const rawContent = document.getElementById("qrScannerRaw");
+            const canvas = document.createElement("canvas");
+            const canvasContext = canvas.getContext("2d", { willReadFrequently: true });
+
+            let scannerStream = null;
+            let scannerLoopId = null;
+            let scannerDetector = null;
+            let scannerRunning = false;
+            let shouldUseBarcodeDetector = "BarcodeDetector" in window;
+
+            function setScannerStatus(message, variant) {
+                status.textContent = message;
+                status.classList.remove("is-error", "is-success");
+                if (variant) status.classList.add(variant);
+            }
+
+            function setRawContent(content) {
+                if (content) {
+                    rawContent.textContent = "Conteudo lido: " + content;
+                    rawContent.classList.add("is-visible");
+                    return;
+                }
+                rawContent.textContent = "";
+                rawContent.classList.remove("is-visible");
+            }
+
+            function stopScanner() {
+                scannerRunning = false;
+                if (scannerLoopId) {
+                    window.cancelAnimationFrame(scannerLoopId);
+                    scannerLoopId = null;
+                }
+                if (video) {
+                    video.pause();
+                    video.srcObject = null;
+                }
+                if (scannerStream) {
+                    scannerStream.getTracks().forEach(function (track) {
+                        track.stop();
+                    });
+                    scannerStream = null;
+                }
+            }
+
+            function closeScanner() {
+                stopScanner();
+                modal.hidden = true;
+                setRawContent("");
+            }
+
+            function isValidPort(portValue) {
+                if (!portValue) return false;
+                const portNumber = Number(portValue);
+                return Number.isInteger(portNumber) && portNumber >= 1 && portNumber <= 65535;
+            }
+
+            function normalizeOrderUrl(scannedText) {
+                if (!scannedText) {
+                    return { valid: false, message: "Este QR code nao possui conteudo legivel." };
+                }
+
+                let parsedUrl;
+                try {
+                    parsedUrl = new URL(scannedText.trim());
+                } catch (error) {
+                    return { valid: false, message: "Este QR code nao e um link valido de OS." };
+                }
+
+                if (!/^https?:$/.test(parsedUrl.protocol)) {
+                    return { valid: false, message: "Este QR code nao usa um protocolo valido de OS." };
+                }
+
+                const normalizedPath = parsedUrl.pathname.replace(/\/+$/, "");
+                const orderMatch = normalizedPath.match(/^\/os\/(\d+)$/i);
+                if (!orderMatch) {
+                    return { valid: false, message: "Este QR code nao e valido para uma OS." };
+                }
+
+                const targetUrl = new URL(scannerConfig.publicBaseUrl || window.location.origin);
+                const preferredHostname = scannerConfig.runtimeNetworkIp || targetUrl.hostname || window.location.hostname;
+                const scannedPort = isValidPort(parsedUrl.port) ? parsedUrl.port : "";
+                const fallbackPort = targetUrl.port || String(scannerConfig.appPort || "");
+
+                targetUrl.protocol = targetUrl.protocol || window.location.protocol;
+                targetUrl.hostname = preferredHostname;
+                targetUrl.port = scannedPort || fallbackPort;
+                targetUrl.pathname = "/os/" + orderMatch[1];
+                targetUrl.search = "";
+                targetUrl.hash = "";
+
+                return { valid: true, url: targetUrl.toString() };
+            }
+
+            function handleDecodedContent(scannedText) {
+                const result = normalizeOrderUrl(scannedText);
+                if (!result.valid) {
+                    stopScanner();
+                    setScannerStatus(result.message, "is-error");
+                    setRawContent(scannedText);
+                    return;
+                }
+
+                stopScanner();
+                setRawContent("");
+                setScannerStatus("QR reconhecido. Redirecionando para a OS...", "is-success");
+                window.location.href = result.url;
+            }
+
+            function tryDecodeWithJsQr() {
+                if (!window.jsQR || !canvasContext) return false;
+
+                const width = video.videoWidth;
+                const height = video.videoHeight;
+                if (!width || !height) return false;
+
+                canvas.width = width;
+                canvas.height = height;
+                canvasContext.drawImage(video, 0, 0, width, height);
+                const imageData = canvasContext.getImageData(0, 0, width, height);
+                const qrResult = window.jsQR(imageData.data, width, height, { inversionAttempts: "dontInvert" });
+                if (!qrResult || !qrResult.data) return false;
+
+                handleDecodedContent(qrResult.data);
+                return true;
+            }
+
+            async function decodeFrame() {
+                if (!scannerRunning || !video || video.readyState < 2) {
+                    scannerLoopId = window.requestAnimationFrame(decodeFrame);
+                    return;
+                }
+
+                try {
+                    if (shouldUseBarcodeDetector) {
+                        if (!scannerDetector) {
+                            scannerDetector = new window.BarcodeDetector({ formats: ["qr_code"] });
+                        }
+                        const detections = await scannerDetector.detect(video);
+                        if (detections && detections.length && detections[0].rawValue) {
+                            handleDecodedContent(detections[0].rawValue);
+                            return;
+                        }
+                    }
+
+                    if (tryDecodeWithJsQr()) {
+                        return;
+                    }
+
+                    if (!shouldUseBarcodeDetector && !window.jsQR) {
+                        stopScanner();
+                        setScannerStatus("Este navegador nao suporta leitura de QR por camera aqui. Tente Chrome ou Edge atualizados.", "is-error");
+                        return;
+                    }
+                } catch (error) {
+                    if (shouldUseBarcodeDetector) {
+                        shouldUseBarcodeDetector = false;
+                        scannerDetector = null;
+                        if (tryDecodeWithJsQr()) {
+                            return;
+                        }
+                    } else {
+                        stopScanner();
+                        setScannerStatus("Nao foi possivel ler a camera agora. Verifique a permissao e tente novamente.", "is-error");
+                        return;
+                    }
+                }
+
+                scannerLoopId = window.requestAnimationFrame(decodeFrame);
+            }
+
+            async function startScanner() {
+                stopScanner();
+                shouldUseBarcodeDetector = "BarcodeDetector" in window;
+                scannerDetector = null;
+                setRawContent("");
+                setScannerStatus("Aguardando permissao da camera...", null);
+
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    setScannerStatus("Este navegador nao permite abrir a camera para leitura de QR.", "is-error");
+                    return;
+                }
+
+                try {
+                    scannerStream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: { ideal: "environment" }
+                        },
+                        audio: false
+                    });
+                } catch (primaryError) {
+                    try {
+                        scannerStream = await navigator.mediaDevices.getUserMedia({
+                            video: true,
+                            audio: false
+                        });
+                    } catch (fallbackError) {
+                        setScannerStatus("Nao foi possivel acessar a camera. Libere a permissao e tente novamente.", "is-error");
+                        return;
+                    }
+                }
+
+                video.srcObject = scannerStream;
+
+                try {
+                    await video.play();
+                } catch (error) {
+                    stopScanner();
+                    setScannerStatus("A camera foi aberta, mas o video nao conseguiu iniciar.", "is-error");
+                    return;
+                }
+
+                scannerRunning = true;
+                setScannerStatus("Aponte a camera para o QR Code da OS.", null);
+                scannerLoopId = window.requestAnimationFrame(decodeFrame);
+            }
+
+            function openScanner() {
+                modal.hidden = false;
+                startScanner();
+            }
+
+            if (openButton) {
+                openButton.addEventListener("click", openScanner);
+            }
+
+            [closeButton, cancelButton].forEach(function (button) {
+                if (!button) return;
+                button.addEventListener("click", closeScanner);
+            });
+
+            if (retryButton) {
+                retryButton.addEventListener("click", function () {
+                    startScanner();
+                });
+            }
+
+            if (modal) {
+                modal.addEventListener("click", function (event) {
+                    if (event.target === modal) {
+                        closeScanner();
+                    }
+                });
+            }
+
+            document.addEventListener("keydown", function (event) {
+                if (event.key === "Escape" && modal && !modal.hidden) {
+                    closeScanner();
+                }
             });
         }());
     </script>

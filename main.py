@@ -219,6 +219,14 @@ def _get_runtime_network_ip() -> str:
 def _get_public_base_url() -> str:
     return getattr(app.state, 'public_base_url', _build_public_base_url(_get_runtime_network_ip()))
 
+
+def _get_template_runtime_context() -> dict:
+    return {
+        'runtime_network_ip': _get_runtime_network_ip(),
+        'public_base_url': _get_public_base_url(),
+        'app_port': APP_PORT,
+    }
+
 @app.on_event('startup')
 def _cache_runtime_network_metadata() -> None:
     _refresh_runtime_network_metadata()
@@ -385,6 +393,7 @@ def _build_index_context(
             } if item['kind'] == 'page' else item
             for item in _build_pagination_items(page, total_pages)
         ],
+        **_get_template_runtime_context(),
     }
 
 
@@ -452,6 +461,7 @@ def new_order(request: Request):
     return templates.TemplateResponse(request, 'new_os.html', {
         'statuses': list(COLOR_MAP.keys()),
         'messages': _pop_flash(request),
+        **_get_template_runtime_context(),
     })
 
 
@@ -468,6 +478,7 @@ def order_detail(nordem: str, request: Request, return_to: str = '/'):
             'statuses': list(COLOR_MAP.keys()),
             'return_to': return_to or '/',
             'messages': _pop_flash(request),
+            **_get_template_runtime_context(),
         })
     finally:
         db.close()
@@ -580,6 +591,7 @@ async def api_create_order(request: Request):
         return templates.TemplateResponse(request, 'new_os.html', {
             'statuses': list(COLOR_MAP.keys()),
             'messages': _pop_flash(request),
+            **_get_template_runtime_context(),
         }, status_code=422)
 
     db = SessionLocal()
@@ -618,6 +630,7 @@ async def api_create_order(request: Request):
             'statuses': list(COLOR_MAP.keys()),
             'messages': _pop_flash(request),
             'form_data': data,
+            **_get_template_runtime_context(),
         }, status_code=422)
     finally:
         db.close()
