@@ -9,6 +9,7 @@ Conecta diretamente ao banco de dados Firebird do ERP (DADOS5.FDB).
 
 - Python 3.10 ou superior
 - Acesso ao arquivo `DADOS5.FDB` (via servidor Firebird já instalado na rede **ou** via Docker)
+- Servy 7.8 ou superior
 
 ---
 
@@ -18,6 +19,8 @@ Conecta diretamente ao banco de dados Firebird do ERP (DADOS5.FDB).
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
+
+winget.exe install servy --accept-package-agreements --accept-source-agreements
 ```
 
 Copie o arquivo de exemplo e edite conforme o seu ambiente:

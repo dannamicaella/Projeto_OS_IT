@@ -1,5 +1,7 @@
 [CmdletBinding()]
-param()
+param(
+    [switch]$InstallServy
+)
 
 $ErrorActionPreference = "Stop"
 
@@ -7,48 +9,15 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Resolve-Path (Join-Path $scriptDir "..")
 $pythonExe = Join-Path $repoRoot ".venv\Scripts\python.exe"
 $envFile = Join-Path $repoRoot ".env"
+$commonScript = Join-Path $scriptDir "common.ps1"
 
-function Write-Success {
-    param([string]$Message)
-    Write-Host "[OK] $Message" -ForegroundColor Green
+if (-not (Test-Path -LiteralPath $commonScript)) {
+    throw "Common script not found at $commonScript"
 }
 
-function Fail {
-    param([string]$Message)
-    throw $Message
-}
+. $commonScript
 
-function Get-EnvMap {
-    param([string]$Path)
-
-    if (-not (Test-Path -LiteralPath $Path)) {
-        Fail ".env file not found at $Path"
-    }
-
-    $map = @{}
-    foreach ($rawLine in Get-Content -LiteralPath $Path) {
-        $line = $rawLine.Trim()
-        if (-not $line -or $line.StartsWith("#")) {
-            continue
-        }
-
-        $separatorIndex = $line.IndexOf("=")
-        if ($separatorIndex -lt 1) {
-            continue
-        }
-
-        $key = $line.Substring(0, $separatorIndex).Trim()
-        $value = $line.Substring($separatorIndex + 1).Trim()
-
-        if (($value.StartsWith('"') -and $value.EndsWith('"')) -or ($value.StartsWith("'") -and $value.EndsWith("'"))) {
-            $value = $value.Substring(1, $value.Length - 2)
-        }
-
-        $map[$key] = $value
-    }
-
-    return $map
-}
+Write-Section "Projeto OS IT Doctor"
 
 if (-not (Test-Path -LiteralPath $pythonExe)) {
     Fail "Python virtual environment not found at $pythonExe"
@@ -66,7 +35,7 @@ $requiredKeys = @(
     "FIREBIRD_PASSWORD"
 )
 
-$missingKeys = $requiredKeys | Where-Object { -not $envMap.ContainsKey($_) -or [string]::IsNullOrWhiteSpace($envMap[$_]) }
+$missingKeys = @($requiredKeys | Where-Object { -not $envMap.ContainsKey($_) -or [string]::IsNullOrWhiteSpace($envMap[$_]) })
 if ($missingKeys.Count -gt 0) {
     Fail "Missing required .env values: $($missingKeys -join ', ')"
 }
@@ -76,7 +45,7 @@ foreach ($key in $requiredKeys) {
     [Environment]::SetEnvironmentVariable($key, $envMap[$key], "Process")
 }
 
-& $pythonExe -c "import importlib.util, sys; required=('dotenv','sqlalchemy','fdb'); missing=[m for m in required if importlib.util.find_spec(m) is None]; sys.exit(0 if not missing else (print('Missing Python packages: ' + ', '.join(missing)) or 1))"
+& $pythonExe -c "import importlib.util, sys; required=('dotenv','fastapi','sqlalchemy','fdb','uvicorn','jinja2','itsdangerous'); missing=[m for m in required if importlib.util.find_spec(m) is None]; sys.exit(0 if not missing else (print('Missing Python packages: ' + ', '.join(missing)) or 1))"
 if ($LASTEXITCODE -ne 0) {
     Fail "Required Python packages are missing from the virtual environment."
 }
@@ -87,3 +56,18 @@ if ($LASTEXITCODE -ne 0) {
     Fail "Could not connect to the Firebird database using the current .env settings."
 }
 Write-Success "Firebird database connection succeeded."
+
+if ($InstallServy) {
+    $servyCli = Ensure-ServyInstalled
+    Write-Success "Servy is ready: $servyCli"
+}
+else {
+    $servyCli = Resolve-ServyCliPath
+    if ($servyCli) {
+        Write-Success "Servy CLI found at $servyCli"
+        Write-Success "Servy is ready: $servyCli"
+    }
+    else {
+        Fail "Servy CLI is not installed. Run .\\start.ps1 to install it automatically or install Servy manually."
+    }
+}
