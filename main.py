@@ -6,9 +6,11 @@ import csv
 import io
 import logging
 import os
+from math import ceil
 from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
+from urllib.parse import quote, urlencode
 
 from dotenv import load_dotenv
 
@@ -175,6 +177,8 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
+PAGE_SIZE = 15
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -212,6 +216,59 @@ def _filtered_query(db, situacao: Optional[str] = None, start: Optional[str] = N
     return q
 
 
+def _coerce_page(page: int) -> int:
+    return max(page, 1)
+
+
+def _list_query_params(
+    situacao: str = '',
+    start: str = '',
+    end: str = '',
+    page: Optional[int] = None,
+) -> dict:
+    params = {}
+    if situacao:
+        params['situacao'] = situacao
+    if start:
+        params['start'] = start
+    if end:
+        params['end'] = end
+    if page and page > 1:
+        params['page'] = page
+    return params
+
+
+def _build_list_url(
+    situacao: str = '',
+    start: str = '',
+    end: str = '',
+    page: Optional[int] = None,
+) -> str:
+    params = _list_query_params(situacao, start, end, page)
+    query = urlencode(params)
+    return f'/?{query}' if query else '/'
+
+
+def _build_pagination_items(current_page: int, total_pages: int) -> list[dict]:
+    if total_pages <= 1:
+        return []
+
+    pages = {1, total_pages, current_page}
+    for offset in range(1, 3):
+        pages.add(current_page - offset)
+        pages.add(current_page + offset)
+
+    valid_pages = sorted(page for page in pages if 1 <= page <= total_pages)
+    items = []
+    previous_page = None
+    for page in valid_pages:
+        if previous_page is not None and page - previous_page > 1:
+            items.append({'kind': 'ellipsis'})
+        items.append({'kind': 'page', 'number': page, 'is_current': page == current_page})
+        previous_page = page
+    return items
+
+
 def _db_error_message(exc: Exception) -> str:
     """Extract a readable message from a SQLAlchemy/Firebird exception."""
     cause = getattr(exc, 'orig', None) or getattr(exc, '__cause__', None)
@@ -238,26 +295,46 @@ def _pop_flash(request: Request) -> list:
 # ---------------------------------------------------------------------------
 
 @app.get('/', response_class=HTMLResponse, name='index')
-def index(request: Request, situacao: str = '', start: str = '', end: str = ''):
+def index(request: Request, situacao: str = '', start: str = '', end: str = '', page: int = 1):
     db = SessionLocal()
     try:
         q = _filtered_query(db, situacao or None, start or None, end or None)
-        orders = q.order_by(OrdemServico.datacadastro.desc()).all()
-        params = []
-        if situacao:
-            params.append(f'situacao={situacao}')
-        if start:
-            params.append(f'start={start}')
-        if end:
-            params.append(f'end={end}')
-        qs = ('?' + '&'.join(params)) if params else ''
+        total_orders = q.count()
+        total_pages = max(ceil(total_orders / PAGE_SIZE), 1)
+        page = min(_coerce_page(page), total_pages)
+        offset = (page - 1) * PAGE_SIZE
+        orders = (
+            q.order_by(OrdemServico.datacadastro.desc(), OrdemServico.idordem.desc())
+            .offset(offset)
+            .limit(PAGE_SIZE)
+            .all()
+        )
+        start_index = offset + 1 if total_orders else 0
+        end_index = min(offset + PAGE_SIZE, total_orders)
         return templates.TemplateResponse(request, 'list_os.html', {
             'orders': orders,
             'color_map': COLOR_MAP,
             'status_filter': situacao,
             'date_from': start,
             'date_to': end,
-            'export_url': f'/export{qs}',
+            'export_url': f"/export?{urlencode(_list_query_params(situacao, start, end))}" if _list_query_params(situacao, start, end) else '/export',
+            'list_url': _build_list_url(situacao, start, end, page),
+            'list_url_encoded': quote(_build_list_url(situacao, start, end, page), safe=''),
+            'current_page': page,
+            'total_pages': total_pages,
+            'total_orders': total_orders,
+            'page_size': PAGE_SIZE,
+            'start_index': start_index,
+            'end_index': end_index,
+            'prev_page_url': _build_list_url(situacao, start, end, page - 1) if page > 1 else None,
+            'next_page_url': _build_list_url(situacao, start, end, page + 1) if page < total_pages else None,
+            'pagination_items': [
+                {
+                    **item,
+                    'url': _build_list_url(situacao, start, end, item['number']),
+                } if item['kind'] == 'page' else item
+                for item in _build_pagination_items(page, total_pages)
+            ],
             'messages': _pop_flash(request),
         })
     finally:
@@ -273,7 +350,7 @@ def new_order(request: Request):
 
 
 @app.get('/os/{nordem}', response_class=HTMLResponse, name='order_detail')
-def order_detail(nordem: str, request: Request):
+def order_detail(nordem: str, request: Request, return_to: str = '/'):
     db = SessionLocal()
     try:
         order = db.query(OrdemServico).filter(OrdemServico.nordem == int(nordem)).first()
@@ -283,6 +360,7 @@ def order_detail(nordem: str, request: Request):
             'order': order,
             'color_map': COLOR_MAP,
             'statuses': list(COLOR_MAP.keys()),
+            'return_to': return_to or '/',
             'messages': _pop_flash(request),
         })
     finally:
@@ -330,12 +408,31 @@ def export_orders(situacao: str = '', start: str = '', end: str = ''):
 # ---------------------------------------------------------------------------
 
 @app.get('/api/orders', name='api_list_orders')
-def api_list_orders(situacao: str = '', start: str = '', end: str = ''):
+def api_list_orders(situacao: str = '', start: str = '', end: str = '', page: int = 1):
     db = SessionLocal()
     try:
         q = _filtered_query(db, situacao or None, start or None, end or None)
-        orders = q.order_by(OrdemServico.datacadastro.desc()).all()
-        return {'orders': [_order_to_dict(o) for o in orders]}
+        total_orders = q.count()
+        total_pages = max(ceil(total_orders / PAGE_SIZE), 1)
+        page = min(_coerce_page(page), total_pages)
+        offset = (page - 1) * PAGE_SIZE
+        orders = (
+            q.order_by(OrdemServico.datacadastro.desc(), OrdemServico.idordem.desc())
+            .offset(offset)
+            .limit(PAGE_SIZE)
+            .all()
+        )
+        return {
+            'orders': [_order_to_dict(o) for o in orders],
+            'pagination': {
+                'page': page,
+                'page_size': PAGE_SIZE,
+                'total_orders': total_orders,
+                'total_pages': total_pages,
+                'has_previous': page > 1,
+                'has_next': page < total_pages,
+            },
+        }
     finally:
         db.close()
 
@@ -439,11 +536,13 @@ async def api_update_order_status(nordem: str, request: Request):
             form = await request.form()
             data = dict(form)
 
+        return_to = (data.get('return_to') or '/').strip() or '/'
+
         new_situacao = (data.get('situacao') or data.get('status') or '').strip()
         if not new_situacao:
             if is_json:
                 raise HTTPException(status_code=400, detail='missing_situacao')
-            return RedirectResponse(url=f'/os/{nordem}', status_code=303)
+            return RedirectResponse(url=f'/os/{nordem}?return_to={quote(return_to, safe="/?=&")}', status_code=303)
 
         order.situacao = new_situacao
         hist = OsHist(
@@ -460,7 +559,7 @@ async def api_update_order_status(nordem: str, request: Request):
         if is_json:
             return JSONResponse({'ok': True, 'situacao': new_situacao})
         _flash(request, 'Status atualizado.', 'success')
-        return RedirectResponse(url=f'/os/{nordem}', status_code=303)
+        return RedirectResponse(url=f'/os/{nordem}?return_to={quote(return_to, safe="/?=&")}', status_code=303)
     finally:
         db.close()
 

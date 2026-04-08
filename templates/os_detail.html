@@ -40,6 +40,7 @@
             <dt class="col-sm-3">Situação</dt>
             <dd class="col-sm-9">
                 <form method="post" action="{{ request.url_for('api_update_order_status', nordem=order.nordem) }}" class="d-flex flex-wrap align-items-center gap-2">
+                    <input type="hidden" name="return_to" value="{{ return_to }}">
                     <select name="situacao" class="form-select form-select-sm" style="min-width:160px;max-width:240px;flex:1 1 160px;">
                         {% for s in statuses %}
                         <option value="{{ s }}" {% if order.situacao == s %}selected{% endif %}>{{ s }}</option>
@@ -69,5 +70,5 @@
         <a href="/qr/{{ order.nordem }}.png" download="OS_{{ order.nordem }}_qrcode.png" class="btn btn-sm btn-outline-primary">Download</a>
     </div>
 </div>
-<a class="btn btn-secondary mt-3" href="{{ request.url_for('index') }}">Voltar</a>
+<a class="btn btn-secondary mt-3" href="{{ return_to }}">Voltar</a>
 {% endblock %}
