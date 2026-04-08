@@ -37,7 +37,6 @@ copy .env.example .env
 | `FIREBIRD_FILE` | Caminho do arquivo `.fdb` **como visto pelo servidor Firebird** | `/data/DADOS5.FDB` |
 | `FIREBIRD_USER` | Usuário do banco | `SYSDBA` |
 | `FIREBIRD_PASSWORD` | Senha do banco | `masterkey` |
-| `FRONTEND_URL` | URL base usada nos QR Codes | `http://localhost:5050` |
 | `SECRET_KEY` | Chave de sessão | qualquer string aleatória |
 | `PORT` | Porta do servidor web | `5050` |
 
@@ -55,7 +54,9 @@ copy .env.example .env
 python main.py
 ```
 
-Acesse [http://localhost:5050](http://localhost:5050)
+Acesse `http://localhost:5050`
+
+Na rede local, a aplicaÃ§Ã£o calcula automaticamente a URL pÃºblica no formato `http://<ip-da-rede>:<porta>` quando inicia. Esse mesmo endereÃ§o Ã© reutilizado nos QR Codes.
 
 ---
 
@@ -99,4 +100,3 @@ Após instalar, configure o `.env` com o caminho real do arquivo no servidor:
 FIREBIRD_HOST=localhost
 FIREBIRD_FILE=C:/caminho/para/DADOS5.FDB
 ```
-

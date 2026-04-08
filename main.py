@@ -6,6 +6,7 @@ import csv
 import io
 import logging
 import os
+import socket
 from math import ceil
 from datetime import date, datetime
 from pathlib import Path
@@ -31,7 +32,7 @@ try:
 except ImportError:
     qrcode = None
 
-FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:8000').rstrip('/')
+APP_PORT = int(os.environ.get('PORT', '5050'))
 
 # ---------------------------------------------------------------------------
 # Database setup — Firebird 2.5 (ODS 11.2)
@@ -180,6 +181,49 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 PAGE_SIZE = 15
 
 
+def _detect_network_ip() -> str:
+    """Return the most useful LAN IP for opening the app from another device."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(('8.8.8.8', 80))
+            ip_address = sock.getsockname()[0]
+            if ip_address and not ip_address.startswith('127.'):
+                return ip_address
+    except OSError:
+        pass
+
+    try:
+        ip_address = socket.gethostbyname(socket.gethostname())
+        if ip_address and not ip_address.startswith('127.'):
+            return ip_address
+    except OSError:
+        pass
+
+    return 'localhost'
+
+
+def _build_public_base_url(network_ip: str) -> str:
+    return f'http://{network_ip}:{APP_PORT}'
+
+
+def _refresh_runtime_network_metadata() -> None:
+    network_ip = _detect_network_ip()
+    app.state.network_ip = network_ip
+    app.state.public_base_url = _build_public_base_url(network_ip)
+
+
+def _get_runtime_network_ip() -> str:
+    return getattr(app.state, 'network_ip', 'localhost')
+
+
+def _get_public_base_url() -> str:
+    return getattr(app.state, 'public_base_url', _build_public_base_url(_get_runtime_network_ip()))
+
+@app.on_event('startup')
+def _cache_runtime_network_metadata() -> None:
+    _refresh_runtime_network_metadata()
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -214,11 +258,16 @@ def _filtered_query(
 ):
     q = db.query(OrdemServico)
     if situacao:
-        q = q.filter(OrdemServico.situacao == situacao)
+        # Work around a sqlalchemy-firebird compiler bug triggered by
+        # ORM equality comparisons against String columns.
+        q = q.filter(text("SITUACAO = :situacao"))
+        q = q.params(situacao=situacao)
     if start:
-        q = q.filter(cast(OrdemServico.datacadastro, SADate) >= start)
+        q = q.filter(text("DATACADASTRO >= CAST(:start AS DATE)"))
+        q = q.params(start=start)
     if end:
-        q = q.filter(cast(OrdemServico.datacadastro, SADate) <= end)
+        q = q.filter(text("DATACADASTRO <= CAST(:end AS DATE)"))
+        q = q.params(end=end)
     if search:
         search_value = search.strip()
         if search_value:
@@ -312,6 +361,8 @@ def _build_index_context(
         'request': request,
         'orders': orders,
         'color_map': COLOR_MAP,
+        'database_path': fb_file,
+        'network_url': _get_public_base_url(),
         'status_filter': situacao,
         'date_from': start,
         'date_to': end,
@@ -649,7 +700,7 @@ def qr_code_image(nordem: str):
 
     img_io = io.BytesIO()
     if qrcode:
-        qr_img = qrcode.make(f"{FRONTEND_URL}/os/{nordem}")
+        qr_img = qrcode.make(f"{_get_public_base_url()}/os/{nordem}")
         qr_img.save(img_io, format='PNG')
     img_io.seek(0)
     return Response(content=img_io.read(), media_type='image/png')
@@ -657,5 +708,5 @@ def qr_code_image(nordem: str):
 
 if __name__ == '__main__':
     import uvicorn
-    port = int(os.environ.get('PORT', 8000))
+    port = APP_PORT
     uvicorn.run('main:app', host='0.0.0.0', port=port, reload=True)

@@ -3,91 +3,102 @@
 {% block title %}Nova Ordem - Inovatech OS{% endblock %}
 
 {% block content %}
-<h1>Criar nova Ordem de Serviço</h1>
-<form method="post" action="{{ request.url_for('api_create_order') }}" id="form-nova-os" novalidate>
-    <div class="mb-3">
-        <label for="nordem" class="form-label">N° OS <span class="text-danger">*</span></label>
-        <input type="text" class="form-control" id="nordem" name="nordem"
-               placeholder="ex: OS0001" required maxlength="20"
-               value="{{ form_data.nordem if form_data else '' }}">
-        <div class="invalid-feedback">Informe o número da OS (máx. 20 caracteres).</div>
+<section class="hero">
+    <div>
+        <p class="hero__eyebrow">Cadastro</p>
+        <h1 class="hero__title">Crie uma nova ordem sem excesso de etapas.</h1>
+        <p class="hero__text">Mantivemos apenas os campos usados hoje, organizados para leitura e preenchimento rapido.</p>
     </div>
-    <div class="mb-3">
-        <label for="nomecliente" class="form-label">Cliente <span class="text-danger">*</span></label>
-        <input type="text" class="form-control" id="nomecliente" name="nomecliente"
-               required maxlength="300"
-               value="{{ form_data.nomecliente if form_data else '' }}">
-        <div class="invalid-feedback">Informe o nome do cliente.</div>
+    <div class="hero__actions">
+        <a class="btn" href="{{ request.url_for('index') }}">Voltar para ordens</a>
     </div>
-    <div class="mb-3">
-        <label for="solicitante" class="form-label">Solicitante</label>
-        <input type="text" class="form-control" id="solicitante" name="solicitante"
-               maxlength="100"
-               value="{{ form_data.solicitante if form_data else '' }}">
-    </div>
-    <div class="mb-3">
-        <label for="fonesolicitante" class="form-label">Telefone</label>
-        <input type="text" class="form-control" id="fonesolicitante" name="fonesolicitante"
-               maxlength="15" placeholder="ex: (11) 99999-9999"
-               value="{{ form_data.fonesolicitante if form_data else '' }}">
-        <div class="invalid-feedback">Telefone deve ter no máximo 15 caracteres.</div>
-    </div>
-    <div class="mb-3">
-        <label for="descricao" class="form-label">Equipamento <span class="text-danger">*</span></label>
-        <input type="text" class="form-control" id="descricao" name="descricao"
-               required maxlength="200"
-               value="{{ form_data.descricao if form_data else '' }}">
-        <div class="invalid-feedback">Informe o equipamento (máx. 200 caracteres).</div>
-    </div>
-    <div class="mb-3">
-        <label for="defeito" class="form-label">Defeito relatado</label>
-        <textarea class="form-control" id="defeito" name="defeito" rows="3" maxlength="3000">{{ form_data.defeito if form_data else '' }}</textarea>
-        <div class="form-text">Máx. 3000 caracteres.</div>
-    </div>
-    <div class="mb-3">
-        <label for="situacao" class="form-label">Situação inicial</label>
-        <select class="form-select" id="situacao" name="situacao" required>
-            {% for s in statuses %}
-            <option value="{{ s }}" {% if form_data and form_data.situacao == s %}selected{% endif %}>{{ s }}</option>
-            {% endfor %}
-        </select>
-        <div class="invalid-feedback">Selecione uma situação.</div>
-    </div>
-    <div class="d-grid d-sm-flex gap-2">
-        <button type="submit" class="btn btn-primary">Salvar</button>
-        <a href="{{ request.url_for('index') }}" class="btn btn-secondary">Cancelar</a>
-    </div>
-</form>
+</section>
 
+<section class="panel panel--inset">
+    <div style="margin-bottom: 24px;">
+        <h2 class="section-title">Dados da ordem</h2>
+        <p class="section-subtitle">Preencha os campos obrigatorios para registrar a OS.</p>
+    </div>
+    <form method="post" action="{{ request.url_for('api_create_order') }}" id="form-nova-os" novalidate>
+        <div class="field-grid">
+            <div class="field-group field-group--span-4">
+                <label class="label" for="nordem">N OS <span class="required">*</span></label>
+                <input type="text" class="field" id="nordem" name="nordem" placeholder="Ex: 10234" required maxlength="20" value="{{ form_data.nordem if form_data else '' }}">
+                <div class="invalid-feedback">Informe o numero da OS com ate 20 caracteres.</div>
+            </div>
+            <div class="field-group field-group--span-8">
+                <label class="label" for="nomecliente">Cliente <span class="required">*</span></label>
+                <input type="text" class="field" id="nomecliente" name="nomecliente" required maxlength="300" value="{{ form_data.nomecliente if form_data else '' }}">
+                <div class="invalid-feedback">Informe o nome do cliente.</div>
+            </div>
+            <div class="field-group field-group--span-6">
+                <label class="label" for="solicitante">Solicitante</label>
+                <input type="text" class="field" id="solicitante" name="solicitante" maxlength="100" value="{{ form_data.solicitante if form_data else '' }}">
+            </div>
+            <div class="field-group field-group--span-6">
+                <label class="label" for="fonesolicitante">Telefone</label>
+                <input type="text" class="field" id="fonesolicitante" name="fonesolicitante" maxlength="15" placeholder="Ex: (11) 99999-9999" value="{{ form_data.fonesolicitante if form_data else '' }}">
+                <div class="invalid-feedback">Telefone deve ter no maximo 15 caracteres.</div>
+            </div>
+            <div class="field-group field-group--span-8">
+                <label class="label" for="descricao">Equipamento <span class="required">*</span></label>
+                <input type="text" class="field" id="descricao" name="descricao" required maxlength="200" value="{{ form_data.descricao if form_data else '' }}">
+                <div class="invalid-feedback">Informe o equipamento com ate 200 caracteres.</div>
+            </div>
+            <div class="field-group field-group--span-4">
+                <label class="label" for="situacao">Situacao inicial</label>
+                <select class="select" id="situacao" name="situacao" required>
+                    {% for s in statuses %}
+                    <option value="{{ s }}" {% if form_data and form_data.situacao == s %}selected{% endif %}>{{ s }}</option>
+                    {% endfor %}
+                </select>
+                <div class="invalid-feedback">Selecione uma situacao.</div>
+            </div>
+            <div class="field-group field-group--span-12">
+                <label class="label" for="defeito">Defeito relatado</label>
+                <textarea class="textarea" id="defeito" name="defeito" rows="5" maxlength="3000" placeholder="Descreva o problema informado pelo cliente.">{{ form_data.defeito if form_data else '' }}</textarea>
+                <div class="field-help">Maximo de 3000 caracteres.</div>
+            </div>
+        </div>
+        <div class="actions-row" style="margin-top: 24px;">
+            <button type="submit" class="btn btn--primary">Salvar ordem</button>
+            <a href="{{ request.url_for('index') }}" class="btn">Cancelar</a>
+        </div>
+    </form>
+</section>
+{% endblock %}
+
+{% block scripts %}
 <script>
 (function () {
-    'use strict';
-    var form = document.getElementById('form-nova-os');
+    "use strict";
+    const form = document.getElementById("form-nova-os");
+    if (!form) return;
 
-    form.addEventListener('submit', function (e) {
-        var valid = true;
+    function markInvalid(element, invalid) {
+        const group = element.closest(".field-group");
+        element.classList.toggle("is-invalid", invalid);
+        if (group) group.classList.toggle("has-error", invalid);
+    }
 
-        // Validate each field individually
-        form.querySelectorAll('[required], [maxlength]').forEach(function (el) {
-            el.classList.remove('is-invalid');
-
-            var val = el.value.trim();
-            var max = el.getAttribute('maxlength');
-
-            if (el.hasAttribute('required') && val === '') {
-                el.classList.add('is-invalid');
-                valid = false;
-            } else if (max && val.length > parseInt(max, 10)) {
-                el.classList.add('is-invalid');
+    form.addEventListener("submit", function (e) {
+        let valid = true;
+        form.querySelectorAll("[required], [maxlength]").forEach(function (element) {
+            markInvalid(element, false);
+            const value = element.value.trim();
+            const max = element.getAttribute("maxlength");
+            const tooLong = max && value.length > parseInt(max, 10);
+            const missing = element.hasAttribute("required") && value === "";
+            if (missing || tooLong) {
+                markInvalid(element, true);
                 valid = false;
             }
         });
 
-        // Extra check: trim whitespace-only values for required fields
-        ['nordem', 'nomecliente', 'descricao'].forEach(function (name) {
-            var el = document.getElementById(name);
-            if (el && el.value.trim() === '') {
-                el.classList.add('is-invalid');
+        ["nordem", "nomecliente", "descricao"].forEach(function (name) {
+            const element = document.getElementById(name);
+            if (element && element.value.trim() === "") {
+                markInvalid(element, true);
                 valid = false;
             }
         });
@@ -95,18 +106,20 @@
         if (!valid) {
             e.preventDefault();
             e.stopPropagation();
-        } else {
-            // Trim leading/trailing whitespace before submission
-            form.querySelectorAll('input[type="text"]').forEach(function (el) {
-                el.value = el.value.trim();
-            });
+            return;
         }
+
+        form.querySelectorAll('input[type="text"], textarea').forEach(function (element) {
+            element.value = element.value.trim();
+        });
     });
 
-    // Remove invalid state when user corrects the field
-    form.querySelectorAll('input, textarea, select').forEach(function (el) {
-        el.addEventListener('input', function () {
-            el.classList.remove('is-invalid');
+    form.querySelectorAll("input, textarea, select").forEach(function (element) {
+        element.addEventListener("input", function () {
+            markInvalid(element, false);
+        });
+        element.addEventListener("change", function () {
+            markInvalid(element, false);
         });
     });
 }());

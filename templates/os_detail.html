@@ -2,73 +2,143 @@
 
 {% block title %}Detalhes da Ordem {{ order.nordem }} - Inovatech OS{% endblock %}
 
+{% block head_extra %}
+<style>
+    .detail-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.75fr);
+        gap: 24px;
+    }
+    .detail-blocks { display: grid; gap: 14px; }
+    .detail-item {
+        display: grid;
+        gap: 6px;
+        padding: 16px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border-subtle);
+        background: rgba(255, 255, 255, 0.02);
+    }
+    .detail-item__label {
+        color: var(--text-faint);
+        font-size: 11px;
+        font-weight: 510;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+    .detail-item__value {
+        color: var(--text);
+        font-size: 15px;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    .detail-item__value--muted { color: var(--text-muted); }
+    .status-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    .qr-panel {
+        display: grid;
+        gap: 18px;
+        align-content: start;
+        justify-items: center;
+        text-align: center;
+    }
+    .qr-frame {
+        width: min(100%, 240px);
+        padding: 18px;
+        border-radius: 18px;
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+        box-shadow: var(--shadow-ring), inset 0 0 12px rgba(0, 0, 0, 0.2);
+    }
+    .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+    }
+    @media (max-width: 960px) {
+        .detail-layout,
+        .detail-grid { grid-template-columns: 1fr; }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<h1>Ordem {{ order.nordem }}</h1>
-<div class="row">
-    <div class="col-md-8">
-        <dl class="row">
-            <dt class="col-sm-3">N° OS</dt>
-            <dd class="col-sm-9">{{ order.nordem }}</dd>
-
-            <dt class="col-sm-3">Cliente</dt>
-            <dd class="col-sm-9">{{ order.nomecliente }}</dd>
-
-            <dt class="col-sm-3">Solicitante</dt>
-            <dd class="col-sm-9">{{ order.solicitante or '—' }}</dd>
-
-            <dt class="col-sm-3">Telefone</dt>
-            <dd class="col-sm-9">{{ order.fonesolicitante or '—' }}</dd>
-
-            <dt class="col-sm-3">Equipamento</dt>
-            <dd class="col-sm-9">{{ order.descricao }}</dd>
-
-            <dt class="col-sm-3">Marca</dt>
-            <dd class="col-sm-9">{{ order.marca or '—' }}</dd>
-
-            <dt class="col-sm-3">N° de série</dt>
-            <dd class="col-sm-9">{{ order.nserie or '—' }}</dd>
-
-            <dt class="col-sm-3">Defeito relatado</dt>
-            <dd class="col-sm-9" style="white-space:pre-wrap;">{{ order.defeito or '—' }}</dd>
-
-            <dt class="col-sm-3">Reparo realizado</dt>
-            <dd class="col-sm-9" style="white-space:pre-wrap;">{{ order.reparo or '—' }}</dd>
-
-            <dt class="col-sm-3">Técnico</dt>
-            <dd class="col-sm-9">{{ order.tecnico or '—' }}</dd>
-
-            <dt class="col-sm-3">Situação</dt>
-            <dd class="col-sm-9">
-                <form method="post" action="{{ request.url_for('api_update_order_status', nordem=order.nordem) }}" class="d-flex flex-wrap align-items-center gap-2">
-                    <input type="hidden" name="return_to" value="{{ return_to }}">
-                    <select name="situacao" class="form-select form-select-sm" style="min-width:160px;max-width:240px;flex:1 1 160px;">
-                        {% for s in statuses %}
-                        <option value="{{ s }}" {% if order.situacao == s %}selected{% endif %}>{{ s }}</option>
-                        {% endfor %}
-                    </select>
-                    <button type="submit" class="btn btn-sm btn-primary">Atualizar</button>
-                </form>
-            </dd>
-
-            <dt class="col-sm-3">Prioridade</dt>
-            <dd class="col-sm-9">{{ order.prioridade or '—' }}</dd>
-
-            <dt class="col-sm-3">Data de entrada</dt>
-            <dd class="col-sm-9">{{ order.datacadastro.strftime('%d/%m/%Y') if order.datacadastro else '—' }}</dd>
-
-            <dt class="col-sm-3">Previsão de entrega</dt>
-            <dd class="col-sm-9">{{ order.datapentrega.strftime('%d/%m/%Y') if order.datapentrega else '—' }}</dd>
-
-            <dt class="col-sm-3">Valor total</dt>
-            <dd class="col-sm-9">{{ 'R$ %.2f'|format(order.vltotal) if order.vltotal else '—' }}</dd>
-        </dl>
+<section class="hero">
+    <div>
+        <p class="hero__eyebrow">Detalhe da OS</p>
+        <h1 class="hero__title">Ordem {{ order.nordem }}</h1>
+        <p class="hero__text">Consulte os dados principais, atualize a situacao e acesse a etiqueta QR em um unico lugar.</p>
     </div>
-    <div class="col-md-4 text-center mt-4 mt-md-0">
-        <h5>Etiqueta QR Code</h5>
-        <img src="/qr/{{ order.nordem }}.png" alt="QR Code" class="img-fluid mb-2" style="max-width:180px;">
-        <br>
-        <a href="/qr/{{ order.nordem }}.png" download="OS_{{ order.nordem }}_qrcode.png" class="btn btn-sm btn-outline-primary">Download</a>
+    <div class="hero__actions">
+        <a class="btn" href="{{ return_to }}">Voltar</a>
     </div>
-</div>
-<a class="btn btn-secondary mt-3" href="{{ return_to }}">Voltar</a>
+</section>
+
+<section class="detail-layout">
+    <article class="panel panel--inset detail-blocks">
+        <div>
+            <h2 class="section-title">Resumo da ordem</h2>
+            <p class="section-subtitle">Informacoes operacionais e historico basico da OS.</p>
+        </div>
+
+        <div class="detail-grid">
+            <div class="detail-item"><div class="detail-item__label">Cliente</div><div class="detail-item__value">{{ order.nomecliente }}</div></div>
+            <div class="detail-item"><div class="detail-item__label">Equipamento</div><div class="detail-item__value">{{ order.descricao }}</div></div>
+            <div class="detail-item"><div class="detail-item__label">Solicitante</div><div class="detail-item__value {% if not order.solicitante %}detail-item__value--muted{% endif %}">{{ order.solicitante or 'Nao informado' }}</div></div>
+            <div class="detail-item"><div class="detail-item__label">Telefone</div><div class="detail-item__value {% if not order.fonesolicitante %}detail-item__value--muted{% endif %}">{{ order.fonesolicitante or 'Nao informado' }}</div></div>
+            <div class="detail-item"><div class="detail-item__label">Marca</div><div class="detail-item__value {% if not order.marca %}detail-item__value--muted{% endif %}">{{ order.marca or 'Nao informado' }}</div></div>
+            <div class="detail-item"><div class="detail-item__label">Numero de serie</div><div class="detail-item__value {% if not order.nserie %}detail-item__value--muted{% endif %}">{{ order.nserie or 'Nao informado' }}</div></div>
+            <div class="detail-item"><div class="detail-item__label">Tecnico</div><div class="detail-item__value {% if not order.tecnico %}detail-item__value--muted{% endif %}">{{ order.tecnico or 'Nao informado' }}</div></div>
+            <div class="detail-item"><div class="detail-item__label">Prioridade</div><div class="detail-item__value {% if not order.prioridade %}detail-item__value--muted{% endif %}">{{ order.prioridade or 'Nao informado' }}</div></div>
+            <div class="detail-item"><div class="detail-item__label">Data de entrada</div><div class="detail-item__value {% if not order.datacadastro %}detail-item__value--muted{% endif %}">{{ order.datacadastro.strftime('%d/%m/%Y') if order.datacadastro else 'Nao informada' }}</div></div>
+            <div class="detail-item"><div class="detail-item__label">Previsao de entrega</div><div class="detail-item__value {% if not order.datapentrega %}detail-item__value--muted{% endif %}">{{ order.datapentrega.strftime('%d/%m/%Y') if order.datapentrega else 'Nao informada' }}</div></div>
+            <div class="detail-item"><div class="detail-item__label">Valor total</div><div class="detail-item__value {% if not order.vltotal %}detail-item__value--muted{% endif %}">{{ 'R$ %.2f'|format(order.vltotal) if order.vltotal else 'Nao informado' }}</div></div>
+            <div class="detail-item">
+                <div class="detail-item__label">Situacao atual</div>
+                <div class="detail-item__value">
+                    <span class="status-badge">
+                        <span class="status-badge__dot" style="background: {{ color_map.get(order.situacao, '#8a8f98') }};"></span>
+                        {{ order.situacao }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-item">
+            <div class="detail-item__label">Defeito relatado</div>
+            <div class="detail-item__value {% if not order.defeito %}detail-item__value--muted{% endif %}">{{ order.defeito or 'Nao informado' }}</div>
+        </div>
+
+        <div class="detail-item">
+            <div class="detail-item__label">Reparo realizado</div>
+            <div class="detail-item__value {% if not order.reparo %}detail-item__value--muted{% endif %}">{{ order.reparo or 'Nao informado' }}</div>
+        </div>
+
+        <div class="detail-item">
+            <div class="detail-item__label">Atualizar situacao</div>
+            <form method="post" action="{{ request.url_for('api_update_order_status', nordem=order.nordem) }}" class="status-form">
+                <input type="hidden" name="return_to" value="{{ return_to }}">
+                <select name="situacao" class="select" style="min-width: 220px; flex: 1 1 220px;">
+                    {% for s in statuses %}
+                    <option value="{{ s }}" {% if order.situacao == s %}selected{% endif %}>{{ s }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn btn--primary">Atualizar</button>
+            </form>
+        </div>
+    </article>
+
+    <aside class="panel panel--soft qr-panel">
+        <div>
+            <h2 class="section-title">Etiqueta QR</h2>
+            <p class="section-subtitle">Aponte para o detalhe desta ordem ou faca o download da imagem.</p>
+        </div>
+        <div class="qr-frame">
+            <img src="/qr/{{ order.nordem }}.png" alt="QR Code da ordem {{ order.nordem }}">
+        </div>
+        <div class="actions-row" style="justify-content: center;">
+            <a class="btn btn--primary" href="/qr/{{ order.nordem }}.png" download="OS_{{ order.nordem }}_qrcode.png">Baixar QR</a>
+            <a class="btn" href="{{ return_to }}">Voltar</a>
+        </div>
+    </aside>
+</section>
 {% endblock %}

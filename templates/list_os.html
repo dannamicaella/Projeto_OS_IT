@@ -2,81 +2,274 @@
 
 {% block title %}Ordens de Servico - Inovatech OS{% endblock %}
 
+{% block head_extra %}
+<style>
+    .list-page { display: grid; gap: 14px; }
+    .filters-panel { display: grid; gap: 14px; }
+    .filters-form { display: grid; gap: 12px; }
+    .filters-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: center;
+    }
+    .results-shell { display: grid; gap: 12px; }
+    .results-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: center;
+    }
+    .results-meta { color: var(--text-muted); font-size: 13px; }
+    .results-meta strong { color: var(--text); font-weight: 590; }
+    .orders-table-wrap {
+        overflow: auto;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.02);
+    }
+    .orders-table {
+        width: 100%;
+        min-width: 920px;
+        border-collapse: collapse;
+    }
+    .orders-table th,
+    .orders-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--border-subtle);
+        vertical-align: middle;
+    }
+    .orders-table th {
+        color: var(--text-faint);
+        font-size: 12px;
+        font-weight: 510;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        background: rgba(255, 255, 255, 0.02);
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+    .orders-table tbody tr { transition: background 160ms ease; }
+    .orders-table tbody tr:hover { background: rgba(255, 255, 255, 0.025); }
+    .orders-table td:last-child,
+    .orders-table th:last-child { text-align: right; }
+    .table-primary { color: var(--text); font-size: 13px; font-weight: 510; }
+    .table-secondary { margin-top: 2px; color: var(--text-muted); font-size: 12px; }
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 10px;
+        min-height: 28px;
+        border-radius: 999px;
+        border: 1px solid var(--border-subtle);
+        background: rgba(255, 255, 255, 0.02);
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-weight: 510;
+    }
+    .status-badge__dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 999px;
+        box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.03);
+        flex: 0 0 auto;
+    }
+    .qr-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 48px;
+        height: 48px;
+        padding: 6px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.03);
+    }
+    .qr-link img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
+    .table-actions { display: inline-flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+    .pagination {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+    .page-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 34px;
+        min-height: 34px;
+        padding: 0 10px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.02);
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-weight: 510;
+    }
+    .page-link[aria-current="page"] {
+        background: rgba(113, 112, 255, 0.14);
+        color: var(--text);
+        border-color: rgba(113, 112, 255, 0.26);
+    }
+    .page-link[aria-disabled="true"] {
+        opacity: 0.45;
+        pointer-events: none;
+    }
+    .dialog-backdrop {
+        border: 0;
+        border-radius: var(--radius-xl);
+        padding: 0;
+        width: min(calc(100% - 32px), 520px);
+        background: transparent;
+        color: inherit;
+        box-shadow: var(--shadow-soft);
+    }
+    .dialog-backdrop::backdrop { background: rgba(0, 0, 0, 0.85); }
+    .dialog-panel {
+        padding: 24px;
+        border-radius: var(--radius-xl);
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, #17181a 0%, #101112 100%);
+        box-shadow: var(--shadow-ring), inset 0 0 12px rgba(0, 0, 0, 0.2);
+    }
+    .dialog-list { display: grid; gap: 12px; margin: 18px 0 0; }
+    .dialog-item {
+        padding: 12px 14px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border-subtle);
+        background: rgba(255, 255, 255, 0.02);
+    }
+    .dialog-item__label {
+        color: var(--text-faint);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+    .dialog-item__value { margin-top: 4px; color: var(--text); font-size: 14px; }
+    .dialog-footer {
+        display: flex;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 20px;
+    }
+    .results-shell[aria-busy="true"] { opacity: 0.75; }
+    @media (max-width: 768px) {
+        .filters-actions,
+        .results-toolbar { align-items: stretch; }
+        .filters-actions .actions-row,
+        .results-toolbar .actions-row { width: 100%; }
+        .filters-actions .btn,
+        .results-toolbar .btn { flex: 1 1 0; }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<h1>Ordens de Servico</h1>
-
-<form method="get" class="mb-3">
-    <div class="row g-2 align-items-end">
-        <div class="col-12 col-lg-4">
-            <label for="searchInput" class="form-label mb-1">Pesquisar OS:</label>
-            <input
-                type="text"
-                class="form-control"
-                id="searchInput"
-                name="search"
-                value="{{ search_term }}"
-                placeholder="Busque por numero da OS, cliente ou equipamento"
-                autocomplete="off"
-            >
-        </div>
-        <div class="col-12 col-sm-auto">
-            <label for="statusFilter" class="form-label mb-1">Situacao:</label>
-            <select class="form-select" id="statusFilter" name="situacao">
-                <option value="">Todas</option>
-                {% for opt in color_map.keys() %}
-                <option value="{{ opt }}" {% if status_filter == opt %}selected{% endif %}>{{ opt }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-6 col-sm-auto">
-            <label for="startDate" class="form-label mb-1">Data inicial:</label>
-            <input type="date" class="form-control" id="startDate" name="start" value="{{ date_from }}">
-        </div>
-        <div class="col-6 col-sm-auto">
-            <label for="endDate" class="form-label mb-1">Data final:</label>
-            <input type="date" class="form-control" id="endDate" name="end" value="{{ date_to }}">
-        </div>
-        <div class="col-12 col-sm-auto d-grid d-sm-block">
-            <button type="submit" class="btn btn-primary">Aplicar</button>
-        </div>
+<div class="list-page">
+    <div style="display:flex; gap: 1em; font-size:12px; color: #aaa;">
+        <section class="panel" style="flex:1;">
+            IP da Rede: <a href="{{ network_url }}" target="_blank" rel="noopener noreferrer">{{ network_url }}</a>
+        </section>
+        <section class="panel" style="flex:1;">
+            Banco: {{ database_path }}
+        </section>
     </div>
-</form>
+    <section class="panel panel--inset filters-panel">
+        <div>
+            <h2 class="section-title">Filtrar ordens</h2>
+            <p class="section-subtitle">Busca direta e filtros rapidos, logo abaixo do cabecalho principal.</p>
+        </div>
+        <form method="get" class="filters-form" id="filtersForm">
+            <div class="field-grid">
+                <div class="field-group field-group--span-6">
+                    <label class="label" for="searchInput">Pesquisar</label>
+                    <input type="text" class="field" id="searchInput" name="search" value="{{ search_term }}" placeholder="Numero da OS, cliente ou equipamento" autocomplete="off">
+                </div>
+                <div class="field-group field-group--span-3">
+                    <label class="label" for="statusFilter">Situacao</label>
+                    <select class="select" id="statusFilter" name="situacao">
+                        <option value="">Todas</option>
+                        {% for opt in color_map.keys() %}
+                        <option value="{{ opt }}" {% if status_filter == opt %}selected{% endif %}>{{ opt }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field-group field-group--span-3">
+                    <label class="label" for="startDate">Data inicial</label>
+                    <input type="date" class="field" id="startDate" name="start" value="{{ date_from }}">
+                </div>
+                <div class="field-group field-group--span-3">
+                    <label class="label" for="endDate">Data final</label>
+                    <input type="date" class="field" id="endDate" name="end" value="{{ date_to }}">
+                </div>
+            </div>
+            <div class="filters-actions">
+                <div class="actions-row">
+                    <button type="submit" class="btn btn--primary">Aplicar filtros</button>
+                    <a class="btn" href="{{ request.url_for('index') }}">Limpar</a>
+                </div>
+                <div class="hint">A busca textual atualiza automaticamente.</div>
+            </div>
+        </form>
+    </section>
 
-<div id="ordersListContainer" aria-live="polite">
-    {% include '_order_list_content.html' %}
+    <section id="ordersListContainer" class="results-shell" aria-live="polite">
+        {% include '_order_list_content.html' %}
+    </section>
 </div>
 
-<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="deleteModalLabel">Confirmar exclusao</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+<dialog id="deleteDialog" class="dialog-backdrop">
+    <div class="dialog-panel">
+        <h2 class="section-title">Excluir ordem</h2>
+        <p class="section-subtitle">A exclusao e permanente. Confira os dados antes de confirmar.</p>
+        <div class="dialog-list">
+            <div class="dialog-item">
+                <div class="dialog-item__label">Numero</div>
+                <div class="dialog-item__value" id="modalNordem"></div>
             </div>
-            <div class="modal-body">
-                <p>Tem certeza que deseja excluir esta ordem de servico?</p>
-                <ul class="list-group list-group-flush">
-                    <li class="list-group-item"><strong>N OS:</strong> <span id="modalNordem"></span></li>
-                    <li class="list-group-item"><strong>Cliente:</strong> <span id="modalCliente"></span></li>
-                    <li class="list-group-item"><strong>Equipamento:</strong> <span id="modalProduto"></span></li>
-                    <li class="list-group-item"><strong>Entrada:</strong> <span id="modalEntrada"></span></li>
-                </ul>
-                <p class="text-danger mt-3 mb-0"><small>Esta acao nao pode ser desfeita.</small></p>
+            <div class="dialog-item">
+                <div class="dialog-item__label">Cliente</div>
+                <div class="dialog-item__value" id="modalCliente"></div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Excluir</button>
+            <div class="dialog-item">
+                <div class="dialog-item__label">Equipamento</div>
+                <div class="dialog-item__value" id="modalProduto"></div>
+            </div>
+            <div class="dialog-item">
+                <div class="dialog-item__label">Entrada</div>
+                <div class="dialog-item__value" id="modalEntrada"></div>
             </div>
         </div>
+        <div class="dialog-footer">
+            <button type="button" class="btn" id="cancelDeleteBtn">Cancelar</button>
+            <button type="button" class="btn btn--danger" id="confirmDeleteBtn">Excluir</button>
+        </div>
     </div>
-</div>
+</dialog>
+{% endblock %}
 
+{% block scripts %}
 <script>
 (function () {
-    const filtersForm = document.querySelector('form[method="get"]');
-    const searchInput = document.getElementById('searchInput');
-    const ordersListContainer = document.getElementById('ordersListContainer');
-    const deleteModal = document.getElementById('deleteModal');
+    const filtersForm = document.getElementById("filtersForm");
+    const searchInput = document.getElementById("searchInput");
+    const ordersListContainer = document.getElementById("ordersListContainer");
+    const deleteDialog = document.getElementById("deleteDialog");
+    const confirmDeleteBtn = document.getElementById("confirmDeleteBtn");
+    const cancelDeleteBtn = document.getElementById("cancelDeleteBtn");
     let pendingNordem = null;
     let debounceTimer = null;
     let activeRequestId = 0;
@@ -85,72 +278,53 @@
         if (!filtersForm) return;
         let pageInput = filtersForm.querySelector('input[name="page"]');
         if (!page || page <= 1) {
-            if (pageInput) {
-                pageInput.remove();
-            }
+            if (pageInput) pageInput.remove();
             return;
         }
-
         if (!pageInput) {
-            pageInput = document.createElement('input');
-            pageInput.type = 'hidden';
-            pageInput.name = 'page';
+            pageInput = document.createElement("input");
+            pageInput.type = "hidden";
+            pageInput.name = "page";
             filtersForm.appendChild(pageInput);
         }
         pageInput.value = String(page);
     }
 
     function buildListUrl() {
-        const formAction = filtersForm.getAttribute('action') || window.location.pathname;
+        const formAction = filtersForm.getAttribute("action") || window.location.pathname;
         const formData = new FormData(filtersForm);
         const params = new URLSearchParams();
-
         formData.forEach(function (value, key) {
             const normalizedValue = String(value).trim();
-            if (normalizedValue) {
-                params.set(key, normalizedValue);
-            }
+            if (normalizedValue) params.set(key, normalizedValue);
         });
-
         const query = params.toString();
-        return query ? `${formAction}?${query}` : formAction;
+        return query ? formAction + "?" + query : formAction;
     }
 
     async function refreshList(url, options) {
         if (!filtersForm || !ordersListContainer) return;
-
         const requestId = ++activeRequestId;
         const activeElement = options && options.preserveFocus ? document.activeElement : null;
         const selectionStart = activeElement && activeElement.selectionStart;
         const selectionEnd = activeElement && activeElement.selectionEnd;
-
-        filtersForm.classList.add('opacity-75');
-        ordersListContainer.setAttribute('aria-busy', 'true');
+        ordersListContainer.setAttribute("aria-busy", "true");
 
         try {
-            const response = await fetch(url, {
-                headers: {
-                    'X-Partial-Render': 'order-list'
-                }
-            });
-            if (!response.ok) {
-                throw new Error('Erro ao atualizar listagem');
-            }
-
+            const response = await fetch(url, { headers: { "X-Partial-Render": "order-list" } });
+            if (!response.ok) throw new Error("Erro ao atualizar listagem");
             if (requestId !== activeRequestId) return;
-
             ordersListContainer.innerHTML = await response.text();
-            if (options && options.historyMode === 'push') {
-                window.history.pushState({}, '', url);
+            if (options && options.historyMode === "push") {
+                window.history.pushState({}, "", url);
             } else if (!(options && options.skipHistory)) {
-                window.history.replaceState({}, '', url);
+                window.history.replaceState({}, "", url);
             }
-
             if (activeElement && activeElement.id) {
                 const nextActiveElement = document.getElementById(activeElement.id);
                 if (nextActiveElement) {
                     nextActiveElement.focus({ preventScroll: true });
-                    if (typeof selectionStart === 'number' && typeof selectionEnd === 'number' && nextActiveElement.setSelectionRange) {
+                    if (typeof selectionStart === "number" && typeof selectionEnd === "number" && nextActiveElement.setSelectionRange) {
                         nextActiveElement.setSelectionRange(selectionStart, selectionEnd);
                     }
                 }
@@ -158,65 +332,80 @@
         } catch (error) {
             window.location.assign(url);
         } finally {
-            if (requestId === activeRequestId) {
-                filtersForm.classList.remove('opacity-75');
-                ordersListContainer.removeAttribute('aria-busy');
-            }
+            if (requestId === activeRequestId) ordersListContainer.removeAttribute("aria-busy");
         }
     }
 
     function submitFilters(resetPage) {
         if (!filtersForm) return;
-        if (resetPage) {
-            setPageValue(null);
-        }
-        refreshList(buildListUrl(), { preserveFocus: true, historyMode: 'replace' });
+        if (resetPage) setPageValue(null);
+        refreshList(buildListUrl(), { preserveFocus: true, historyMode: "replace" });
+    }
+
+    function openDeleteDialog(button) {
+        if (!deleteDialog || !button) return;
+        pendingNordem = button.getAttribute("data-nordem");
+        document.getElementById("modalNordem").textContent = pendingNordem || "--";
+        document.getElementById("modalCliente").textContent = button.getAttribute("data-cliente") || "--";
+        document.getElementById("modalProduto").textContent = button.getAttribute("data-produto") || "--";
+        document.getElementById("modalEntrada").textContent = button.getAttribute("data-entrada") || "--";
+        deleteDialog.showModal();
     }
 
     if (searchInput && filtersForm) {
-        searchInput.addEventListener('input', function () {
+        searchInput.addEventListener("input", function () {
             clearTimeout(debounceTimer);
             debounceTimer = window.setTimeout(function () {
                 submitFilters(true);
-            }, 350);
+            }, 600);
         });
     }
 
-    ['statusFilter', 'startDate', 'endDate'].forEach(function (id) {
+    ["statusFilter", "startDate", "endDate"].forEach(function (id) {
         const field = document.getElementById(id);
         if (!field || !filtersForm) return;
-        field.addEventListener('change', function () {
+        field.addEventListener("change", function () {
             submitFilters(true);
         });
     });
 
-    filtersForm.addEventListener('submit', function (event) {
-        event.preventDefault();
-        refreshList(buildListUrl(), { preserveFocus: false, historyMode: 'push' });
-    });
+    if (filtersForm) {
+        filtersForm.addEventListener("submit", function (event) {
+            event.preventDefault();
+            refreshList(buildListUrl(), { preserveFocus: false, historyMode: "push" });
+        });
+    }
 
-    ordersListContainer.addEventListener('click', function (event) {
-        const link = event.target.closest('.pagination .page-link');
-        if (!link || link.getAttribute('aria-disabled') === 'true' || link.getAttribute('href') === '#') return;
-        event.preventDefault();
-        const targetUrl = new URL(link.href, window.location.origin);
-        const page = Number(targetUrl.searchParams.get('page') || '1');
-        setPageValue(page);
-        refreshList(targetUrl.pathname + targetUrl.search, { preserveFocus: false, historyMode: 'push' });
-    });
+    if (ordersListContainer) {
+        ordersListContainer.addEventListener("click", function (event) {
+            const paginationLink = event.target.closest(".pagination .page-link");
+            if (paginationLink && paginationLink.getAttribute("aria-disabled") !== "true" && paginationLink.getAttribute("href") !== "#") {
+                event.preventDefault();
+                const targetUrl = new URL(paginationLink.href, window.location.origin);
+                const page = Number(targetUrl.searchParams.get("page") || "1");
+                setPageValue(page);
+                refreshList(targetUrl.pathname + targetUrl.search, { preserveFocus: false, historyMode: "push" });
+                return;
+            }
+            const deleteButton = event.target.closest("[data-delete-order]");
+            if (deleteButton) {
+                event.preventDefault();
+                openDeleteDialog(deleteButton);
+            }
+        });
+    }
 
-    window.addEventListener('popstate', function () {
+    window.addEventListener("popstate", function () {
         const currentUrl = new URL(window.location.href);
-        const search = currentUrl.searchParams.get('search') || '';
-        const situacao = currentUrl.searchParams.get('situacao') || '';
-        const start = currentUrl.searchParams.get('start') || '';
-        const end = currentUrl.searchParams.get('end') || '';
-        const page = Number(currentUrl.searchParams.get('page') || '1');
-
+        const search = currentUrl.searchParams.get("search") || "";
+        const situacao = currentUrl.searchParams.get("situacao") || "";
+        const start = currentUrl.searchParams.get("start") || "";
+        const end = currentUrl.searchParams.get("end") || "";
+        const page = Number(currentUrl.searchParams.get("page") || "1");
         if (searchInput) searchInput.value = search;
-        const statusFilter = document.getElementById('statusFilter');
-        const startDate = document.getElementById('startDate');
-        const endDate = document.getElementById('endDate');
+        const statusFilter = document.getElementById("statusFilter");
+        const startDate = document.getElementById("startDate");
+        const endDate = document.getElementById("endDate");
         if (statusFilter) statusFilter.value = situacao;
         if (startDate) startDate.value = start;
         if (endDate) endDate.value = end;
@@ -224,31 +413,39 @@
         refreshList(currentUrl.pathname + currentUrl.search, { preserveFocus: false, skipHistory: true });
     });
 
-    if (deleteModal) {
-        deleteModal.addEventListener('show.bs.modal', function (event) {
-            const btn = event.relatedTarget;
-            if (!btn) return;
-            pendingNordem = btn.getAttribute('data-nordem');
-            document.getElementById('modalNordem').textContent = pendingNordem;
-            document.getElementById('modalCliente').textContent = btn.getAttribute('data-cliente');
-            document.getElementById('modalProduto').textContent = btn.getAttribute('data-produto');
-            document.getElementById('modalEntrada').textContent = btn.getAttribute('data-entrada');
+    if (cancelDeleteBtn && deleteDialog) {
+        cancelDeleteBtn.addEventListener("click", function () {
+            deleteDialog.close();
+            pendingNordem = null;
         });
     }
 
-    document.getElementById('confirmDeleteBtn').addEventListener('click', function () {
-        if (!pendingNordem) return;
-        fetch(`/api/orders/${pendingNordem}`, { method: 'DELETE' })
-            .then(resp => {
-                if (!resp.ok) throw new Error('Erro ao excluir');
-                bootstrap.Modal.getInstance(deleteModal).hide();
+    if (deleteDialog) {
+        deleteDialog.addEventListener("click", function (event) {
+            const bounds = deleteDialog.getBoundingClientRect();
+            const clickedInDialog = event.clientX >= bounds.left && event.clientX <= bounds.right && event.clientY >= bounds.top && event.clientY <= bounds.bottom;
+            if (!clickedInDialog) {
+                deleteDialog.close();
                 pendingNordem = null;
-                return refreshList(buildListUrl(), { preserveFocus: false, historyMode: 'replace' });
-            })
-            .catch(err => {
-                alert('Erro ao excluir a ordem: ' + err.message);
-            });
-    });
-})();
+            }
+        });
+    }
+
+    if (confirmDeleteBtn) {
+        confirmDeleteBtn.addEventListener("click", function () {
+            if (!pendingNordem) return;
+            fetch("/api/orders/" + pendingNordem, { method: "DELETE" })
+                .then(function (resp) {
+                    if (!resp.ok) throw new Error("Erro ao excluir");
+                    if (deleteDialog) deleteDialog.close();
+                    pendingNordem = null;
+                    return refreshList(buildListUrl(), { preserveFocus: false, historyMode: "replace" });
+                })
+                .catch(function (err) {
+                    window.alert("Erro ao excluir a ordem: " + err.message);
+                });
+        });
+    }
+}());
 </script>
 {% endblock %}

@@ -1,49 +1,419 @@
 <!doctype html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Inovatech OS{% endblock %}</title>
-    <!-- Bootstrap CSS from CDN for quick styling -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
-        @media (max-width: 575.98px) {
-            h1 { font-size: 1.4rem; }
-            .navbar-brand { font-size: 1.1rem; }
-            .btn { touch-action: manipulation; }
+        :root {
+            --bg: #08090a;
+            --bg-panel: #0f1011;
+            --bg-elevated: rgba(255, 255, 255, 0.05);
+            --bg-soft: rgba(255, 255, 255, 0.03);
+            --bg-softer: rgba(255, 255, 255, 0.02);
+            --text: #f7f8f8;
+            --text-secondary: #d0d6e0;
+            --text-muted: #8a8f98;
+            --text-faint: #62666d;
+            --border: rgba(255, 255, 255, 0.08);
+            --border-subtle: rgba(255, 255, 255, 0.05);
+            --accent: #5e6ad2;
+            --accent-bright: #7170ff;
+            --accent-hover: #828fff;
+            --danger: #c65b6d;
+            --danger-strong: #e06e82;
+            --success: #10b981;
+            --shadow-ring: 0 0 0 1px rgba(0, 0, 0, 0.2);
+            --shadow-soft: 0 24px 80px rgba(0, 0, 0, 0.42);
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+            --radius-xl: 22px;
+            --container: 1200px;
+        }
+        * { box-sizing: border-box; }
+        html { color-scheme: dark; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background:
+                radial-gradient(circle at top, rgba(113, 112, 255, 0.14), transparent 28%),
+                radial-gradient(circle at 85% 12%, rgba(94, 106, 210, 0.12), transparent 22%),
+                linear-gradient(180deg, #0a0b0d 0%, #08090a 100%);
+            color: var(--text);
+            font-family: "Inter Variable", "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-feature-settings: "cv01", "ss03";
+            line-height: 1.5;
+        }
+        a { color: inherit; text-decoration: none; }
+        button, input, select, textarea { font: inherit; font-feature-settings: inherit; }
+        img { max-width: 100%; display: block; }
+        .shell { width: min(calc(100% - 32px), var(--container)); margin: 0 auto; }
+        .site-header {
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            backdrop-filter: blur(20px);
+            background: rgba(8, 9, 10, 0.82);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .site-header__inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            min-height: 58px;
+            padding: 10px 0;
+        }
+        .brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+        .brand__mark {
+            width: 30px;
+            height: 30px;
+            border-radius: 10px;
+            display: grid;
+            place-items: center;
+            color: var(--text);
+            background: linear-gradient(135deg, rgba(113, 112, 255, 0.9), rgba(94, 106, 210, 0.68));
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.08), 0 12px 34px rgba(94, 106, 210, 0.3);
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+        }
+        .brand__text { display: flex; flex-direction: column; gap: 2px; }
+        .brand__eyebrow {
+            color: var(--text-faint);
+            font-size: 10px;
+            font-weight: 510;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .brand__title {
+            color: var(--text);
+            font-size: 14px;
+            font-weight: 510;
+            letter-spacing: -0.165px;
+        }
+        .nav-links { display: flex; align-items: center; gap: 10px; }
+        .nav-link {
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 510;
+            transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
+            border: 1px solid transparent;
+        }
+        .nav-link:hover, .nav-link:focus-visible {
+            color: var(--text);
+            background: var(--bg-softer);
+            border-color: var(--border-subtle);
+            outline: none;
+        }
+        .nav-link.is-active {
+            color: var(--text);
+            background: rgba(113, 112, 255, 0.12);
+            border-color: rgba(113, 112, 255, 0.22);
+        }
+        .page { padding: 18px 0 48px; }
+        .page-stack { display: grid; gap: 18px; }
+        .hero {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: end;
+            justify-content: space-between;
+            gap: 20px;
+            padding: 16px 0 4px;
+        }
+        .hero__eyebrow {
+            margin: 0 0 10px;
+            color: var(--text-faint);
+            font-size: 12px;
+            font-weight: 510;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .hero__title {
+            margin: 0;
+            color: var(--text);
+            font-size: clamp(2rem, 4vw, 3rem);
+            line-height: 1;
+            letter-spacing: -1.056px;
+            font-weight: 510;
+            max-width: 14ch;
+        }
+        .hero__text {
+            margin: 12px 0 0;
+            max-width: 62ch;
+            color: var(--text-muted);
+            font-size: 16px;
+        }
+        .hero__actions { display: flex; flex-wrap: wrap; gap: 12px; }
+        .panel, .card {
+            position: relative;
+            border: 1px solid var(--border);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0.025) 100%);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-ring);
+        }
+        .panel { padding: 18px; }
+        .panel--soft {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.02) 100%);
+            border-color: var(--border-subtle);
+        }
+        .panel--inset { box-shadow: var(--shadow-ring), inset 0 0 12px rgba(0, 0, 0, 0.2); }
+        .section-title {
+            margin: 0;
+            color: var(--text);
+            font-size: 20px;
+            line-height: 1.33;
+            letter-spacing: -0.24px;
+            font-weight: 590;
+        }
+        .section-subtitle {
+            margin: 8px 0 0;
+            color: var(--text-muted);
+            font-size: 14px;
+            letter-spacing: -0.13px;
+        }
+        .actions-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-height: 36px;
+            padding: 0 12px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 510;
+            letter-spacing: -0.13px;
+            cursor: pointer;
+            transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+        }
+        .btn:hover, .btn:focus-visible {
+            color: var(--text);
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.14);
+            outline: none;
+            transform: translateY(-1px);
+        }
+        .btn:focus-visible, .field:focus, .select:focus, .textarea:focus {
+            box-shadow: 0 0 0 1px rgba(113, 112, 255, 0.55), 0 0 0 4px rgba(113, 112, 255, 0.12);
+        }
+        .btn--primary {
+            background: var(--accent);
+            border-color: rgba(130, 143, 255, 0.36);
+            color: #fff;
+            box-shadow: 0 16px 40px rgba(94, 106, 210, 0.28);
+        }
+        .btn--primary:hover, .btn--primary:focus-visible {
+            background: var(--accent-hover);
+            border-color: rgba(130, 143, 255, 0.48);
+            color: #fff;
+        }
+        .btn--danger {
+            color: #f3cad2;
+            border-color: rgba(198, 91, 109, 0.28);
+            background: rgba(198, 91, 109, 0.08);
+        }
+        .btn--danger:hover, .btn--danger:focus-visible {
+            color: #fff;
+            background: rgba(198, 91, 109, 0.15);
+            border-color: rgba(224, 110, 130, 0.38);
+        }
+        .btn--small { min-height: 32px; padding: 0 10px; font-size: 12px; }
+        .field-grid {
+            display: grid;
+            grid-template-columns: repeat(12, minmax(0, 1fr));
+            gap: 16px;
+        }
+        .field-group { display: grid; gap: 8px; }
+        .field-group--span-12 { grid-column: span 12; }
+        .field-group--span-8 { grid-column: span 8; }
+        .field-group--span-6 { grid-column: span 6; }
+        .field-group--span-4 { grid-column: span 4; }
+        .field-group--span-3 { grid-column: span 3; }
+        .label {
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 510;
+            letter-spacing: -0.13px;
+        }
+        .hint, .field-help { color: var(--text-faint); font-size: 12px; line-height: 1.45; }
+        .required { color: var(--accent-hover); }
+        .field, .select, .textarea {
+            width: 100%;
+            min-height: 40px;
+            padding: 9px 12px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--text);
+            outline: none;
+            transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+        }
+        .field::placeholder, .textarea::placeholder { color: var(--text-faint); }
+        .textarea { min-height: 120px; resize: vertical; }
+        .field.is-invalid, .select.is-invalid, .textarea.is-invalid {
+            border-color: rgba(224, 110, 130, 0.52);
+            background: rgba(198, 91, 109, 0.06);
+        }
+        .invalid-feedback {
+            display: none;
+            color: #f3cad2;
+            font-size: 12px;
+            line-height: 1.45;
+        }
+        .field-group.has-error .invalid-feedback { display: block; }
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 28px;
+            padding: 0 12px;
+            border-radius: 999px;
+            border: 1px solid var(--border-subtle);
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 510;
+            letter-spacing: 0.01em;
+        }
+        .pill__dot { width: 8px; height: 8px; border-radius: 999px; flex: 0 0 auto; }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 12px;
+            min-height: 30px;
+            border-radius: 999px;
+            border: 1px solid var(--border-subtle);
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 510;
+        }
+        .status-badge__dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 999px;
+            box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.03);
+            flex: 0 0 auto;
+        }
+        .flash-stack { display: grid; gap: 12px; }
+        .flash {
+            display: flex;
+            align-items: start;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 14px 16px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.03);
+        }
+        .flash__text { color: var(--text-secondary); font-size: 14px; }
+        .flash--success { border-color: rgba(16, 185, 129, 0.28); background: rgba(16, 185, 129, 0.08); }
+        .flash--danger { border-color: rgba(198, 91, 109, 0.28); background: rgba(198, 91, 109, 0.08); }
+        .flash__close {
+            border: 0;
+            background: transparent;
+            color: var(--text-faint);
+            cursor: pointer;
+            padding: 0;
+            font-size: 18px;
+            line-height: 1;
+        }
+        .kpi-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+        .kpi { padding: 18px; }
+        .kpi__label {
+            color: var(--text-faint);
+            font-size: 12px;
+            font-weight: 510;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .kpi__value {
+            margin-top: 10px;
+            color: var(--text);
+            font-size: clamp(1.4rem, 3vw, 2.1rem);
+            line-height: 1;
+            letter-spacing: -0.704px;
+            font-weight: 510;
+        }
+        .kpi__meta { margin-top: 8px; color: var(--text-muted); font-size: 13px; }
+        .footer-note { color: var(--text-faint); font-size: 12px; text-align: center; padding: 8px 0 0; }
+        @media (max-width: 960px) {
+            .kpi-grid { grid-template-columns: 1fr; }
+            .field-group--span-8, .field-group--span-6, .field-group--span-4, .field-group--span-3 { grid-column: span 12; }
+        }
+        @media (max-width: 768px) {
+            .site-header__inner { min-height: 0; align-items: flex-start; flex-wrap: wrap; gap: 10px; }
+            .nav-links {
+                width: 100%;
+                justify-content: flex-start;
+                flex-wrap: wrap;
+            }
+            .page { padding-top: 12px; padding-bottom: 36px; }
+            .panel { padding: 18px; }
+            .hero { padding-top: 4px; }
+            .hero__title { font-size: 32px; letter-spacing: -0.704px; }
         }
     </style>
+    {% block head_extra %}{% endblock %}
 </head>
-<body class="bg-light">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
-        <div class="container">
-            <a class="navbar-brand" href="{{ request.url_for('index') }}">Inovatech OS</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ request.url_for('new_order') }}">Nova Ordem</a>
-                    </li>
-                </ul>
-            </div>
+<body>
+    <header class="site-header">
+        <div class="shell site-header__inner">
+            <a class="brand" href="{{ request.url_for('index') }}">
+                <span class="brand__mark">OS</span>
+                <span class="brand__text">
+                    <span class="brand__eyebrow">Operacoes</span>
+                    <span class="brand__title">Inovatech OS</span>
+                </span>
+            </a>
+            <nav class="nav-links" id="navLinks">
+                <a class="nav-link {% if request.url.path == '/' %}is-active{% endif %}" href="{{ request.url_for('index') }}">Ordens</a>
+                <a class="btn btn--primary {% if request.url.path == '/new' %}is-active{% endif %}" href="{{ request.url_for('new_order') }}">Nova ordem</a>
+            </nav>
         </div>
-    </nav>
-
-    <div class="container">
-        {% if messages %}
-            {% for msg in messages %}
-                <div class="alert alert-{{ msg['category'] }} alert-dismissible fade show" role="alert">
-                    {{ msg['message'] }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </header>
+    <main class="page">
+        <div class="shell page-stack">
+            {% if messages %}
+            <section class="flash-stack" aria-live="polite">
+                {% for msg in messages %}
+                <div class="flash flash--{{ msg['category'] }}">
+                    <div class="flash__text">{{ msg['message'] }}</div>
+                    <button class="flash__close" type="button" aria-label="Fechar mensagem">&times;</button>
                 </div>
-            {% endfor %}
-        {% endif %}
-        {% block content %}{% endblock %}
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+                {% endfor %}
+            </section>
+            {% endif %}
+            {% block content %}{% endblock %}
+            <p class="footer-note">&copy; Inovatech 2026</p>
+        </div>
+    </main>
+    <script>
+        (function () {
+            document.querySelectorAll(".flash__close").forEach(function (button) {
+                button.addEventListener("click", function () {
+                    const flash = button.closest(".flash");
+                    if (flash) flash.remove();
+                });
+            });
+        }());
+    </script>
+    {% block scripts %}{% endblock %}
 </body>
 </html>
