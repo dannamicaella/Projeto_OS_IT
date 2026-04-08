@@ -7,9 +7,12 @@ $ErrorActionPreference = "Stop"
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Resolve-Path (Join-Path $scriptDir "..")
+$venvDir = Join-Path $repoRoot ".venv"
 $pythonExe = Join-Path $repoRoot ".venv\Scripts\python.exe"
 $envFile = Join-Path $repoRoot ".env"
 $commonScript = Join-Path $scriptDir "common.ps1"
+$requirementsFile = Join-Path $repoRoot "requirements.txt"
+$pyprojectFile = Join-Path $repoRoot "pyproject.toml"
 
 if (-not (Test-Path -LiteralPath $commonScript)) {
     throw "Common script not found at $commonScript"
@@ -17,12 +20,82 @@ if (-not (Test-Path -LiteralPath $commonScript)) {
 
 . $commonScript
 
+function Resolve-SystemPython {
+    $pyLauncher = Get-Command "py.exe" -ErrorAction SilentlyContinue
+    if ($pyLauncher) {
+        return @{
+            FilePath = $pyLauncher.Source
+            Arguments = @("-3")
+            DisplayName = "py -3"
+        }
+    }
+
+    $pythonCommand = Get-Command "python.exe" -ErrorAction SilentlyContinue
+    if ($pythonCommand) {
+        return @{
+            FilePath = $pythonCommand.Source
+            Arguments = @()
+            DisplayName = $pythonCommand.Source
+        }
+    }
+
+    Fail "Python was not found on PATH. Install Python 3 and rerun this script."
+}
+
+function Ensure-Venv {
+    if (Test-Path -LiteralPath $pythonExe) {
+        Write-Success "Python virtual environment found."
+        return $false
+    }
+
+    $systemPython = Resolve-SystemPython
+    Write-Info "Python virtual environment not found. Creating .venv with $($systemPython.DisplayName)."
+
+    & $systemPython.FilePath @($systemPython.Arguments + @("-m", "venv", $venvDir))
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $pythonExe)) {
+        Fail "Could not create the Python virtual environment at $venvDir"
+    }
+
+    Write-Success "Python virtual environment created at $venvDir."
+    return $true
+}
+
+function Install-PythonDependencies {
+    $installArgs = @()
+    if (Test-Path -LiteralPath $requirementsFile) {
+        $installArgs = @("-m", "pip", "install", "-r", $requirementsFile)
+    }
+    elseif (Test-Path -LiteralPath $pyprojectFile) {
+        $installArgs = @("-m", "pip", "install", $repoRoot)
+    }
+    else {
+        Fail "No Python dependency manifest was found. Expected requirements.txt or pyproject.toml in $repoRoot"
+    }
+
+    Write-Info "Ensuring pip is available in the virtual environment."
+    & $pythonExe -m ensurepip --upgrade
+    if ($LASTEXITCODE -ne 0) {
+        Fail "Could not prepare pip inside the virtual environment."
+    }
+
+    Write-Info "Installing Python dependencies into .venv."
+    & $pythonExe @installArgs
+    if ($LASTEXITCODE -ne 0) {
+        Fail "Could not install the Python dependencies into the virtual environment."
+    }
+
+    Write-Success "Python dependencies are installed in .venv."
+}
+
 Write-Section "Projeto OS IT Doctor"
 
-if (-not (Test-Path -LiteralPath $pythonExe)) {
-    Fail "Python virtual environment not found at $pythonExe"
+$venvWasCreated = Ensure-Venv
+if ($venvWasCreated) {
+    Install-PythonDependencies
 }
-Write-Success "Python virtual environment found."
+else {
+    Write-Info "Skipping Python dependency installation because .venv already exists."
+}
 
 $envMap = Get-EnvMap -Path $envFile
 $requiredKeys = @(
